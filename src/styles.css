@@ -101,7 +101,7 @@ main:focus { outline: none; }
 .button.primary:hover { background: #b62a38; box-shadow: 0 3px 0 #922938; }
 .hero-note { display: flex; align-items: center; gap: 11px; font-family: var(--mono); font-size: 9px; letter-spacing: .8px; margin-top: 32px; color: var(--muted); }
 .note-line { width: 35px; height: 2px; background: var(--red); }
-.hero-art { position: relative; width: 100%; max-width: 440px; justify-self: end; padding-top: 22px; }
+.hero-art { position: relative; width: 100%; max-width: 440px; justify-self: end; padding-top: 22px; container-type: inline-size; }
 .pool-scene {
   position: relative;
   isolation: isolate;
@@ -144,7 +144,12 @@ main:focus { outline: none; }
 .pool-ball-ten { left: 67%; top: 57%; width: 29%; max-width: 128px; background: radial-gradient(ellipse at 28% 16%, #f4fbff 0, #ffffffd9 2%, #a9d8f5 8%, transparent 18%), radial-gradient(ellipse at 68% 78%, #123d6b 0, #185994 30%, transparent 59%), radial-gradient(ellipse at 38% 28%, #8ac9f5 0, #287dbb 44%, #145181 78%, #092d50 100%); transform: translate3d(calc(-50% + var(--parallax-x) * .56), calc(-50% + var(--parallax-scroll) * .72 + var(--parallax-y) * .58), 10px); }
 .ball-gloss { position: absolute; left: 13%; top: 9%; width: 37%; height: 19%; border-radius: 50%; background: linear-gradient(155deg, #fffffff2, #e8f1fa87 23%, #dceaf81b 77%); filter: blur(2.5px); transform: rotate(-34deg) translateZ(4px); }
 .ball-mark { z-index: 2; position: relative; display: grid; place-items: center; width: 44%; aspect-ratio: 1; border: 1px solid #aab6c1; border-radius: 50%; background: radial-gradient(circle at 34% 25%, #fff 0 43%, #f7f8f7 72%, #d7dce0 100%); box-shadow: inset 0 0 0 2px #ffffffa8, inset 0 -3px 6px #75818d50, 0 2px 5px #0009; transform: translateZ(5px); }
-.ball-mark i { color: #10151e; font-family: 'Figtree', sans-serif; font-weight: 700; font-size: clamp(13px, 7vw, 32px); line-height: .95; font-style: normal; font-variant-numeric: tabular-nums; text-shadow: 0 1px 1px #fff9; }
+/* El número se mide contra el emblema (cqw), no contra la pantalla: así entra en su círculo en cualquier tamaño. */
+.ball-mark i { color: #10151e; font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 7.3cqw; line-height: .95; font-style: normal; font-variant-numeric: tabular-nums; text-shadow: 0 1px 1px #fff9; }
+/* La bola 8 va adelante: los círculos de la 9 y la 10 miran hacia afuera para que no los tape. */
+.pool-ball-nine .ball-mark { translate: -38% 10%; }
+.pool-ball-ten .ball-mark { translate: 38% 10%; }
+.pool-ball-nine .ball-mark i, .pool-ball-ten .ball-mark i { font-size: 6.1cqw; letter-spacing: -.04em; }
 .ball-reflection { position: absolute; right: 11%; bottom: 9%; width: 22%; height: 39%; border-right: 2px solid #ffffff2e; border-radius: 50%; filter: blur(2px); transform: rotate(-17deg) translateZ(3px); }
 .pool-scene[data-parallax='active'], .pool-scene[data-parallax='active'] > * { will-change: transform; }
 .pool-scene[data-parallax='paused'] .pool-ball { transition: transform .7s ease-out; }
