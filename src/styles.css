@@ -143,12 +143,18 @@ main:focus { outline: none; }
 .pool-ball-nine { left: 33%; top: 57%; width: 29%; max-width: 128px; background: radial-gradient(ellipse at 28% 16%, #fffbea 0, #fff9d4 2%, #edce72 9%, transparent 18%), radial-gradient(ellipse at 68% 78%, #81591b 0, #b68122 30%, transparent 59%), radial-gradient(ellipse at 38% 28%, #ffe69a 0, #e6b949 44%, #bb8525 78%, #714817 100%); transform: translate3d(calc(-50% + var(--parallax-x) * .72), calc(-50% + var(--parallax-scroll) * .84 + var(--parallax-y) * .76), 15px); }
 .pool-ball-ten { left: 67%; top: 57%; width: 29%; max-width: 128px; background: radial-gradient(ellipse at 28% 16%, #f4fbff 0, #ffffffd9 2%, #a9d8f5 8%, transparent 18%), radial-gradient(ellipse at 68% 78%, #123d6b 0, #185994 30%, transparent 59%), radial-gradient(ellipse at 38% 28%, #8ac9f5 0, #287dbb 44%, #145181 78%, #092d50 100%); transform: translate3d(calc(-50% + var(--parallax-x) * .56), calc(-50% + var(--parallax-scroll) * .72 + var(--parallax-y) * .58), 10px); }
 .ball-gloss { position: absolute; left: 13%; top: 9%; width: 37%; height: 19%; border-radius: 50%; background: linear-gradient(155deg, #fffffff2, #e8f1fa87 23%, #dceaf81b 77%); filter: blur(2.5px); transform: rotate(-34deg) translateZ(4px); }
-.ball-mark { z-index: 2; position: relative; display: grid; place-items: center; width: 44%; aspect-ratio: 1; border: 1px solid #aab6c1; border-radius: 50%; background: radial-gradient(circle at 34% 25%, #fff 0 43%, #f7f8f7 72%, #d7dce0 100%); box-shadow: inset 0 0 0 2px #ffffffa8, inset 0 -3px 6px #75818d50, 0 2px 5px #0009; transform: translateZ(5px); }
+/* El número va pintado sobre la bola: sin sombra proyectada ni relieve, y sombreado por la misma luz que la esfera. */
+.ball-mark { z-index: 2; position: relative; display: grid; place-items: center; width: 44%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 36% 30%, #fdfcf7 0 38%, #efece2 70%, #d9d5c8 100%); box-shadow: inset 0 0 1px 1px #0000002e; transform: translateZ(3px); }
 /* El número se mide contra el emblema (cqw), no contra la pantalla: así entra en su círculo en cualquier tamaño. */
-.ball-mark i { color: #10151e; font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 7.3cqw; line-height: .95; font-style: normal; font-variant-numeric: tabular-nums; text-shadow: 0 1px 1px #fff9; }
-/* La bola 8 va adelante: los círculos de la 9 y la 10 miran hacia afuera para que no los tape. */
-.pool-ball-nine .ball-mark { translate: -38% 10%; }
-.pool-ball-ten .ball-mark { translate: 38% 10%; }
+.ball-mark i { color: #10151e; font-family: 'Figtree', sans-serif; font-weight: 700; font-size: 7.3cqw; line-height: .95; font-style: normal; font-variant-numeric: tabular-nums; }
+.pool-ball-eight .ball-mark { transform: translate3d(-4%, -5%, 3px); }
+/* La 9 y la 10 están giradas unos 50° hacia afuera. Su círculo acompaña a la esfera: se corre hacia el borde,
+   se comprime en elipse (cos 50° ≈ .64) y el lado lejano se oscurece. Se hace en 2D porque una rotación 3D
+   sobre un elemento tan chico se rasteriza borrosa en celulares. */
+.pool-ball-nine .ball-mark, .pool-ball-ten .ball-mark { --side: -1; transform: translate3d(calc(var(--side) * 60%), 9%, 3px) skewY(calc(var(--side) * -7deg)) scaleX(.64); }
+.pool-ball-ten .ball-mark { --side: 1; }
+.pool-ball-nine .ball-mark { background: linear-gradient(90deg, #a9a596 0, #e4e0d4 38%, #fbfaf4 78%); }
+.pool-ball-ten .ball-mark { background: linear-gradient(270deg, #a9a596 0, #e4e0d4 38%, #fbfaf4 78%); }
 .pool-ball-nine .ball-mark i, .pool-ball-ten .ball-mark i { font-size: 6.1cqw; letter-spacing: -.04em; }
 .ball-reflection { position: absolute; right: 11%; bottom: 9%; width: 22%; height: 39%; border-right: 2px solid #ffffff2e; border-radius: 50%; filter: blur(2px); transform: rotate(-17deg) translateZ(3px); }
 .pool-scene[data-parallax='active'], .pool-scene[data-parallax='active'] > * { will-change: transform; }
