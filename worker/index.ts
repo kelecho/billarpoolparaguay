@@ -1,4 +1,4 @@
-import { applyAction, createState, dateIn, describeAction, validateState, type Action, type State } from '../src/domain';
+import { applyAction, createState, dateIn, describeAction, validateState, type Action, type State } from '../src/domain.ts';
 
 export interface Env {
   DB: D1Database;
@@ -15,7 +15,11 @@ const LOGIN_MAX_FAILURES = 5;
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
 class HttpError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>

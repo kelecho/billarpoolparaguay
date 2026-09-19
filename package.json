@@ -5,10 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc -p worker && vite build",
+    "build:remote": "tsc -b && tsc -p worker && vite build --mode remote",
     "preview": "vite preview --host 0.0.0.0",
+    "dev:remote": "npm run build:remote && node server.mjs",
+    "deploy": "npm run build:remote && wrangler d1 migrations apply pool-paraguay --remote && wrangler deploy",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:remote": "playwright test -c playwright.remote.config.ts"
   },
   "engines": {
     "node": ">=22.12"
