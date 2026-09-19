@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, createState, localDate, standings, validateState, type State } from './domain';
+import { applyAction, createState, dateIn, localDate, pointsHistory, standings, validateState, type State } from './domain';
 
 function fixture(): State {
   const state = createState(false);
@@ -64,6 +64,36 @@ describe('Ranking y resultados', () => {
     expect(standings(next)[0].id).toBe('ana');
     state.players[0].initialPoints = 1100;
     expect(standings(state)[0].id).toBe('ana');
+  });
+});
+
+describe('Disciplinas, historial y bajas', () => {
+  it('arma el ranking de una disciplina solo con los puntos de sus torneos', () => {
+    const state = createState();
+    const bola10 = standings(state, 'Bola 10');
+    expect(bola10).toHaveLength(8);
+    expect(bola10[0]).toMatchObject({ id: 'p2', points: 300, rank: 1, category: 'Primera' });
+    expect(standings(state, 'Bola 8').some(p => p.id === 'p4')).toBe(false);
+    expect(standings(state).find(p => p.id === 'p2')).toMatchObject({ rank: 2, previousRank: 3, podiums: 1, bestPlace: 1 });
+  });
+  it('reconstruye la evolución de puntos desde los puntos iniciales', () => {
+    const diego = standings(createState()).find(p => p.id === 'p1')!;
+    expect(pointsHistory(diego)).toEqual([2150, 2350, 2650, 2800]);
+  });
+  it('elimina jugadores y torneos solo cuando no tienen resultados', () => {
+    const state = createState();
+    expect(applyAction(state, { type: 'player.remove', playerId: 'p11' }).players).toHaveLength(11);
+    expect(() => applyAction(state, { type: 'player.remove', playerId: 'p1' })).toThrow(/resultados publicados/);
+    expect(applyAction(state, { type: 'tournament.remove', tournamentId: 't1' }).tournaments).toHaveLength(4);
+    expect(() => applyAction(state, { type: 'tournament.remove', tournamentId: 't3' })).toThrow(/Reabrí/);
+  });
+  it('usa la fecha indicada por el servidor al publicar', () => {
+    const state = fixture();
+    state.tournaments[0].date = '2026-09-19';
+    const placements = [{ playerId: 'ana', place: 1 }];
+    expect(() => applyAction(state, { type: 'results.publish', tournamentId: 'cup', placements }, '2026-09-18')).toThrow(/fecha/);
+    expect(applyAction(state, { type: 'results.publish', tournamentId: 'cup', placements }, '2026-09-19').tournaments[0].results).toHaveLength(1);
+    expect(dateIn('America/Asuncion', new Date('2026-09-20T02:30:00Z'))).toBe('2026-09-19');
   });
 });
 
