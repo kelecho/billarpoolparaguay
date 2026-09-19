@@ -124,3 +124,14 @@ test('elimina un jugador sin resultados y protege a quienes ya compitieron', asy
   await page.getByRole('button', { name: 'Confirmar: eliminar jugador' }).click();
   await expect(page.getByRole('alert')).toContainText('resultados publicados');
 });
+
+test('alterna el tema oscuro y recuerda la elección', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.getByRole('button', { name: 'Cambiar a tema oscuro' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('button', { name: 'Cambiar a tema claro' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

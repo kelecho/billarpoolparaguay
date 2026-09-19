@@ -1,4 +1,4 @@
-// Servidor local del modo compartido: sirve `dist/` y ejecuta el mismo Worker de producción sobre SQLite.
+// Servidor local del modo compartido: sirve `dist-remote/` y ejecuta el mismo Worker de producción sobre SQLite.
 // Uso: npm run dev:remote  (contraseña en .dev.vars, datos en .data/local.sqlite)
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import worker from './worker/index.ts';
 
 const portIndex = process.argv.indexOf('--port');
 const port = Number(process.env.PORT || (portIndex >= 0 && process.argv[portIndex + 1]) || 8787);
-const dist = join(import.meta.dirname, 'dist');
+const dist = join(import.meta.dirname, 'dist-remote');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 
 const vars = existsSync('.dev.vars') ? Object.fromEntries(readFileSync('.dev.vars', 'utf8').split('\n').filter(l => l.includes('=') && !l.startsWith('#')).map(l => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()])) : {};

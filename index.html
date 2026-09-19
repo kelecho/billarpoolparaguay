@@ -7,6 +7,13 @@
     <meta name="description" content="Jugadores, torneos y ranking de pool del Paraguay. Registrá resultados y seguí cada ascenso." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <script>
+      // Aplica el tema antes del primer pintado para que la página no parpadee en claro.
+      try {
+        var saved = localStorage.getItem('pool-paraguay-theme');
+        document.documentElement.dataset.theme = saved === 'dark' || saved === 'light' ? saved : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (e) { document.documentElement.dataset.theme = 'light'; }
+    </script>
     <title>Pool Paraguay — El pool tiene bandera.</title>
   </head>
   <body>

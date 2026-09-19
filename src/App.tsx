@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, CalendarDays, Check, Download, Flag, Lock, Settings2, Trophy, Users, WifiOff } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, Download, Flag, Lock, Moon, Settings2, Sun, Trophy, Users, WifiOff } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import FloralParallax from './FloralParallax';
 import LoginForm from './components/LoginForm';
@@ -19,6 +19,7 @@ import TournamentsPage from './pages/TournamentsPage';
 import { downloadJSON } from './storage';
 import { pageHref, useHashRoute, type Page } from './useHashRoute';
 import { useStore } from './useStore';
+import { useTheme } from './useTheme';
 
 /** Diálogos de edición. El perfil y los resultados de un torneo se abren desde la URL, no desde acá. */
 type Modal =
@@ -37,6 +38,7 @@ export default function App() {
   const store = useStore();
   const { state, canEdit } = store;
   const { route, navigate } = useHashRoute();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [modal, setModal] = useState<Modal>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -110,7 +112,12 @@ export default function App() {
             <a key={name} href={pageHref(name)} className={page === name ? 'nav-item active' : 'nav-item'} aria-current={page === name ? 'page' : undefined}><Icon size={17} /><span>{name}</span></a>
           ))}
         </nav>
-        <div className="header-country"><span className="flag"><i /><i /><i /></span><span>Hecho de partidas.<strong>Jugado en Paraguay.</strong></span></div>
+        <div className="header-end">
+          <div className="header-country"><span className="flag"><i /><i /><i /></span><span>Hecho de partidas.<strong>Jugado en Paraguay.</strong></span></div>
+          <button className="theme-toggle" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} aria-pressed={theme === 'dark'}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </header>
 
       <div className="workspace">
