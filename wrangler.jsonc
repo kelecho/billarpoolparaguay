@@ -13,8 +13,7 @@
     {
       "binding": "DB",
       "database_name": "pool-paraguay",
-      // Reemplazar por el id que devuelve `npx wrangler d1 create pool-paraguay`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "7402eea8-8668-4fc9-8724-f4292de1f642",
       "migrations_dir": "migrations"
     }
   ]
