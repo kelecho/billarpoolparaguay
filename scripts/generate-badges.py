@@ -1,85 +1,162 @@
-"""Insignias vectoriales de club: siluetas progresivas y numerales legibles."""
+"""Insignias de categoría como monedas nacionales: oro, plata, bronce y níquel.
+
+Cada categoría es una moneda de curso legal paraguaya —1000, 500, 100 y 50 guaraníes—
+acuñada con la tipografía de la marca (Changa One). Los numerales se convierten a
+trazos, así los archivos no dependen de ninguna fuente al mostrarse dentro de un <img>.
+
+Uso: python3 scripts/generate-badges.py  (necesita `pip install fonttools brotli`)
+"""
+from math import cos, radians, sin
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / 'public' / 'badges'
-SHIELD = 'M64 22 100 36 96 82Q92 104 64 122 36 104 32 82L28 36Z'
-FIELD = 'M64 31 91 42 88 80Q84 98 64 112 44 98 40 80L37 42Z'
-STAR = 'M0-6 1.8-2 6.2-1.9 2.8 1 3.7 5.3 0 2.9-3.7 5.3-2.8 1-6.2-1.9-1.8-2Z'
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.ttLib import TTFont
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / 'public' / 'badges'
+FONT = ROOT / 'node_modules' / '@fontsource' / 'changa-one' / 'files' / 'changa-one-latin-400-normal.woff2'
+
+font = TTFont(FONT)
+GLYPHS = font.getGlyphSet()
+CMAP = font.getBestCmap()
+UPEM = font['head'].unitsPerEm
 
 
-def numeral(n):
-    bar, gap = (8, 6) if n < 3 else (6, 5)
-    width = n * bar + (n - 1) * gap
-    x = 64 - width / 2
-    return ''.join([
-        f'<path d="M{x-3} 53h{width+6}v5h-{width+6}zM{x-3} 84h{width+6}v5h-{width+6}z"/>',
-        *(f'<rect x="{x+i*(bar+gap)}" y="56" width="{bar}" height="30"/>' for i in range(n)),
-    ])
+def glyph(char):
+    """Contorno del carácter en unidades de la fuente, con su avance."""
+    name = CMAP[ord(char)]
+    pen = SVGPathPen(GLYPHS)
+    GLYPHS[name].draw(pen)
+    return pen.getCommands(), GLYPHS[name].width
 
 
-def wings(full):
-    # Plumas anchas, escalonadas: la silueta comunica el nivel aun en miniatura.
-    feathers = [
-        'M37 43 5 25 10 47 35 62Z',
-        'M35 58 9 45 16 66 37 76Z',
-        'M37 73 17 63 24 83 43 91Z',
-    ] if full else [
-        'M37 48 10 38 17 58 36 68Z',
-        'M36 65 17 57 24 77 42 88Z',
-    ]
-    feather = ''.join(f'<path d="{d}" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/>' for d in feathers)
-    lines = '<path d="M12 36 32 49M17 55 32 63M25 73 36 79" stroke="#fff4cc" stroke-width="1.5"/>' if full else '<path d="M17 46 32 53M24 66 36 73" stroke="#fff4cc" stroke-width="1.5"/>'
-    return f'<g>{feather}{lines}</g><g transform="translate(128 0) scale(-1 1)">{feather}{lines}</g>'
+def text_path(text, size, x, y, anchor='middle'):
+    """Texto convertido a un único trazo, con el origen en la línea de base."""
+    scale = size / UPEM
+    width = sum(glyph(c)[1] for c in text) * scale
+    start = x - width / 2 if anchor == 'middle' else x - width if anchor == 'end' else x
+    parts, pen_x = [], 0.0
+    for char in text:
+        commands, advance = glyph(char)
+        if commands:
+            parts.append(f'<g transform="translate({start + pen_x:.2f} {y:.2f}) scale({scale:.5f} {-scale:.5f})"><path d="{commands}"/></g>')
+        pen_x += advance * scale
+    return ''.join(parts)
 
 
-def laurel():
-    branch = '<path d="M48 108Q19 95 21 66" fill="none" stroke="url(#metal)" stroke-width="3"/>'
-    for x, y, angle in [(23, 72, -25), (25, 83, -40), (31, 93, -55), (40, 101, -65)]:
-        branch += f'<path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate({x} {y}) rotate({angle})" fill="url(#metal)" stroke="#554020" stroke-width="1"/>'
-    return f'<g>{branch}</g><g transform="translate(128 0) scale(-1 1)">{branch}</g>'
+def arc_text(text, size, radius, center_deg, spacing=1.0, flip=False):
+    """Leyenda curvada sobre el anillo, como la de una moneda acuñada.
+
+    Arriba las letras crecen hacia el canto; abajo se giran media vuelta y crecen
+    hacia el centro, que es como se lee una acuñación real sin poner la cabeza al revés.
+    """
+    scale = size / UPEM
+    widths = [glyph(c)[1] * scale for c in text]
+    # El ancho de cada letra se convierte en el ángulo que ocupa sobre la circunferencia.
+    angles = [w / radius * 57.2958 * spacing for w in widths]
+    way = -1 if flip else 1
+    angle = center_deg - way * sum(angles) / 2
+    parts = []
+    for char, width, step in zip(text, widths, angles):
+        commands, _ = glyph(char)
+        angle += way * step / 2
+        if commands:
+            x, y = 64 + radius * sin(radians(angle)), 64 - radius * cos(radians(angle))
+            turn = angle + 180 if flip else angle
+            parts.append(f'<g transform="translate({x:.2f} {y:.2f}) rotate({turn:.2f}) translate({-width / 2:.2f} 0) scale({scale:.5f} {-scale:.5f})"><path d="{commands}"/></g>')
+        angle += way * step / 2
+    return ''.join(parts)
 
 
-CROWN = '''<path d="M42 28 36 8 52 16 64 4 76 16 92 8 86 28Z" fill="url(#metal)" stroke="#554020" stroke-width="1.8" stroke-linejoin="round"/>
-<path d="M43 24H85V32H43Z" fill="url(#metal)" stroke="#554020" stroke-width="1.5"/>
-<path d="m64 13 4 6-4 6-4-6Z" fill="#b32038"/>
-<path d="M43 12 46 21M85 12 82 21" stroke="#fff6d3" stroke-width="2"/>'''
-DIAMOND = '<path d="m64 49 18 22-18 25-18-25Z"/><path d="m64 56 11 15-11 17-11-17Z" fill="#dcf5ff" stroke="none"/><path d="m64 56 11 15H64Z" fill="#fff" stroke="none"/><path d="M64 71h11L64 88Z" fill="#7ac9e8" stroke="none"/>'
+STAR = 'M0-9 2.6-3 9-2.7 4 1.5 5.6 8 0 4.4-5.6 8-4 1.5-9-2.7-2.6-3Z'
 
 
-def badge(name, title, light, dark, stars, mark, ornament=''):
-    star_xs = {0: [], 1: [64], 2: [56, 72], 3: [48, 64, 80]}[stars]
-    decoration = wings(True) + laurel() if ornament == 'crown' else wings(False) if ornament == 'wings' else laurel() if ornament == 'laurel' else ''
-    body = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-<title>Insignia de {title} · BillarPool Paraguay</title>
+def reeding(count=84, r=59.2, length=4.4):
+    """Canto estriado: el detalle que hace que un círculo se lea como moneda."""
+    ticks = []
+    for i in range(count):
+        a = radians(i * 360 / count)
+        x, y = 64 + sin(a), 64 - cos(a)
+        ticks.append(f'M{64 + (r - length) * sin(a):.2f} {64 - (r - length) * cos(a):.2f}L{64 + r * sin(a):.2f} {64 - r * cos(a):.2f}')
+    return ' '.join(ticks)
+
+
+def lace(rings=(19, 28, 37), spokes=24):
+    """Ñandutí tejido en el campo de la moneda, al modo del guilloché de las acuñaciones."""
+    parts = [f'<circle cx="64" cy="64" r="{r}"/>' for r in rings]
+    for i in range(spokes):
+        a = radians(i * 360 / spokes)
+        parts.append(f'<path d="M{64 + 11 * sin(a):.2f} {64 - 11 * cos(a):.2f}L{64 + 39 * sin(a):.2f} {64 - 39 * cos(a):.2f}"/>')
+    return ''.join(parts)
+
+
+def separators(radius=48, angles=(96, 264)):
+    """Estrellitas que abren y cierran la leyenda, como en las acuñaciones."""
+    return ''.join(
+        f'<path d="{STAR}" transform="translate({64 + radius * sin(radians(a)):.2f} {64 - radius * cos(radians(a)):.2f}) scale(.34)"/>'
+        for a in angles)
+
+
+COINS = {
+    # tono claro, medio, oscuro del metal y color del relieve grabado
+    'primera': dict(
+        title='Primera', value='1000', ring='#f6e6b0',
+        stops=[('#fffaea', 0), ('#f2d68a', .18), ('#c8931f', .44), ('#fff0bd', .53), ('#dfae44', .74), ('#8f5c11', 1)],
+        core=[('#ffeec4', 0), ('#e8bd5c', .45), ('#b8842a', 1)], line='#7a4d0c', shade='#5c390a', shine='#fffbe9'),
+    'segunda': dict(
+        title='Segunda', value='500', ring='#eef3f7',
+        stops=[('#ffffff', 0), ('#e4ebf1', .18), ('#98a7b5', .44), ('#fbfdff', .53), ('#c2cdd9', .74), ('#68778a', 1)],
+        core=[('#f8fbfe', 0), ('#d2dce6', .45), ('#9aa8b7', 1)], line='#5d6c7d', shade='#44505f', shine='#ffffff'),
+    'tercera': dict(
+        title='Tercera', value='100', ring='#f3cfae',
+        stops=[('#ffe8d0', 0), ('#e0a76c', .18), ('#9d5522', .44), ('#ffd5ac', .53), ('#c2793f', .74), ('#6d3a14', 1)],
+        core=[('#ffdcb8', 0), ('#cd8a4f', .45), ('#8e5223', 1)], line='#63330f', shade='#4a2609', shine='#fff0de'),
+    'principiante': dict(
+        title='Principiante', value='50', ring='#dde5ec',
+        stops=[('#dde5ec', 0), ('#a9b6c2', .18), ('#5b6875', .44), ('#cbd5de', .53), ('#828f9d', .74), ('#39434d', 1)],
+        core=[('#c9d3dc', 0), ('#93a0ad', .45), ('#5d6975', 1)], line='#39434d', shade='#242b33', shine='#eaf0f5'),
+}
+
+
+def coin(name, spec):
+    stops = ''.join(f'<stop offset="{o}" stop-color="{c}"/>' for c, o in spec['stops'])
+    core = ''.join(f'<stop offset="{o}" stop-color="{c}"/>' for c, o in spec['core'])
+    value, line, shade, shine = spec['value'], spec['line'], spec['shade'], spec['shine']
+    # El numeral manda: ocupa casi todo el campo y es lo único legible a 48 px.
+    size = 48 if len(value) == 2 else 41 if len(value) == 3 else 35
+    numeral = text_path(value, size, 64, 82)
+    legend = arc_text('GUARANÍES', 9.5, 51.5, 180, spacing=1.1, flip=True)
+    country = arc_text('PARAGUAY', 9.5, 43, 0, spacing=1.12)
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<title>Moneda de {value} guaraníes · insignia de {spec['title']} · BillarPool Paraguay</title>
 <defs>
- <linearGradient id="metal" x1="25" y1="15" x2="103" y2="114" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6d3"/><stop offset=".23" stop-color="#ecc565"/><stop offset=".46" stop-color="#a66b16"/><stop offset=".52" stop-color="#ffe6a0"/><stop offset=".76" stop-color="#d7a13b"/><stop offset="1" stop-color="#805010"/></linearGradient>
- <linearGradient id="face" x1="44" y1="49" x2="76" y2="91" gradientUnits="userSpaceOnUse"><stop stop-color="#fff9e4"/><stop offset=".48" stop-color="#ffe4a0"/><stop offset="1" stop-color="#daa747"/></linearGradient>
- <linearGradient id="enamel" x1="40" y1="35" x2="91" y2="111" gradientUnits="userSpaceOnUse"><stop stop-color="{light}"/><stop offset="1" stop-color="{dark}"/></linearGradient>
- <clipPath id="field"><path d="{FIELD}"/></clipPath>
+ <linearGradient id="metal" x1="20" y1="12" x2="108" y2="116" gradientUnits="userSpaceOnUse">{stops}</linearGradient>
+ <linearGradient id="core" x1="30" y1="26" x2="98" y2="104" gradientUnits="userSpaceOnUse">{core}</linearGradient>
+ <linearGradient id="relief" x1="64" y1="48" x2="64" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="{shine}"/><stop offset=".34" stop-color="{spec['ring']}"/><stop offset=".72" stop-color="{spec['core'][1][0]}"/><stop offset="1" stop-color="{line}"/></linearGradient>
+ <radialGradient id="hollow" cx="64" cy="58" r="46" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".22"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="{shade}" stop-opacity=".35"/></radialGradient>
+ <clipPath id="field"><circle cx="64" cy="64" r="41"/></clipPath>
+ <path id="reed" d="{reeding()}"/>
 </defs>
-{decoration}
-<path d="{SHIELD}" fill="#392b1d" stroke="#392b1d" stroke-width="3" stroke-linejoin="round"/>
-<path d="{SHIELD}" fill="url(#metal)"/>
-<path d="M64 25 97 38 93 81Q89 102 64 118 39 102 35 81L31 38Z" stroke="#fff2bf" stroke-opacity=".8" stroke-width="1.5"/>
-<path d="{FIELD}" fill="url(#enamel)" stroke="#49301c" stroke-width="2"/>
-<g clip-path="url(#field)">
- <path d="M64 30V115H99V30Z" fill="#000" fill-opacity=".16"/>
- <path d="M36 38 87 35 38 87Z" fill="#fff" fill-opacity=".12"/>
- <path d="M43 49 85 99M85 49 43 99" stroke="#000" stroke-opacity=".2" stroke-width="5"/>
- <path d="M43 49 85 99M85 49 43 99" stroke="url(#metal)" stroke-width="2.5"/>
- <path d="M43 49 47 54M85 49 81 54" stroke="#f2f7f7" stroke-width="3"/>
+<circle cx="64" cy="64" r="60.5" fill="{shade}" fill-opacity=".55"/>
+<use href="#reed" stroke="url(#metal)" stroke-width="2.1"/>
+<use href="#reed" stroke="{shade}" stroke-opacity=".45" stroke-width=".9"/>
+<circle cx="64" cy="64" r="55" fill="url(#metal)" stroke="{line}" stroke-width="1.6"/>
+<circle cx="64" cy="64" r="51" fill="none" stroke="{shine}" stroke-opacity=".55" stroke-width="1.6"/>
+<circle cx="64" cy="64" r="41.5" fill="url(#core)" stroke="{line}" stroke-width="1.5"/>
+<g clip-path="url(#field)" stroke="{line}" stroke-opacity=".17" stroke-width=".7" fill="none">{lace()}</g>
+<g fill="url(#relief)" stroke="{line}" stroke-width="1.1" stroke-linejoin="round" paint-order="stroke">
+ <path d="{STAR}" transform="translate(64 38) scale(.82)"/>
 </g>
-<g fill="url(#face)" stroke="{dark}" stroke-width="4" stroke-linejoin="round" paint-order="stroke">{mark}</g>
-<g fill="url(#face)" stroke="#554020" stroke-width=".7">{''.join(f'<path d="{STAR}" transform="translate({x} 41) scale(.8)"/>' for x in star_xs)}</g>
-<path d="M53 100H75" stroke="#ce3543" stroke-width="3"/><path d="M53 103H75" stroke="#fffefa" stroke-width="3"/><path d="M53 106H75" stroke="#3f7db6" stroke-width="3"/>
-{CROWN if ornament == 'crown' else ''}
-<path d="m33 35 1.5 4.5L39 41l-4.5 1.5L33 47l-1.5-4.5L27 41l4.5-1.5Z" fill="#fff8dd"/>
+<circle cx="64" cy="64" r="55" fill="url(#hollow)"/>
+<path d="M27 34A47 47 0 0 1 96 27 55 55 0 0 0 27 34Z" fill="{shine}" fill-opacity=".38"/>
+<g fill="{shade}" fill-opacity=".45" transform="translate(1.6 1.8)">{numeral}</g>
+<g fill="url(#relief)" stroke="{line}" stroke-width="2.2" stroke-linejoin="round" paint-order="stroke">{numeral}</g>
+<g fill="{line}" fill-opacity=".85">{legend}{country}{separators()}</g>
 </svg>
 '''
-    (OUT / f'{name}.svg').write_text(body)
+    (OUT / f'{name}.svg').write_text(svg)
 
 
-badge('primera', 'Primera', '#e54b5d', '#750e26', 3, numeral(1), 'crown')
-badge('segunda', 'Segunda', '#408ddd', '#112f68', 2, numeral(2), 'wings')
-badge('tercera', 'Tercera', '#2caf83', '#0b493a', 1, numeral(3), 'laurel')
-badge('principiante', 'Principiante', '#58b5df', '#19537e', 0, DIAMOND)
+for name, spec in COINS.items():
+    coin(name, spec)
+print('Monedas escritas en', OUT)

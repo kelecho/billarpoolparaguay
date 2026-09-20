@@ -28,7 +28,7 @@ npm run preview
 - Ranking por categoría y disciplina (Bola 8, 9 y 10), con puestos desde 1, podio, búsqueda y movimiento respecto del último torneo. También se puede consultar el general.
 - En el ranking, toda la fila lleva a la ficha del jugador; el nombre sigue siendo un enlace para quien navega con teclado.
 - Directorio de jugadores con filtro por ciudad. Perfil con posición, victorias, podios, evolución de puntos e historial.
-- Insignias de categoría con escudos tricolores: Primera, Segunda, Tercera y Principiante. Se actualizan con la categoría del jugador y también aparecen en los filtros y el ranking.
+- Insignias de categoría como monedas nacionales: Primera es la de 1000 guaraníes en oro, Segunda la de 500 en plata, Tercera la de 100 en bronce y Principiante la de 50 en níquel. Se actualizan con la categoría del jugador y también aparecen en los filtros y el ranking. Se regeneran con `python3 scripts/generate-badges.py` (necesita `pip install fonttools brotli`).
 - Foto opcional desde «Editar jugador»: cargar, reemplazar o quitar JPG, PNG o WebP de hasta 8 MB y 24 megapíxeles. Se recorta al centro y se guarda como JPEG de hasta 384 × 384 px; los respaldos incluyen las fotos.
 - Enlaces compartibles: cada página, perfil y torneo tiene su dirección (`#/torneos?torneo=…`, `#/?jugador=…`) y botón de compartir.
 - Creación, edición y eliminación de jugadores y torneos por categoría. Las inscripciones y los partidos disputados se protegen antes de permitir una baja.
