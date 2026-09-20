@@ -670,6 +670,7 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .draw-panel > .field { max-width: 360px; }
 .draw-panel > .button { justify-self: start; }
 .fixture-title { display: flex; justify-content: space-between; align-items: start; gap: 15px; flex-wrap: wrap; }
+.fixture-section-title { font-family: var(--display); font-size: 18px; margin-bottom: 12px; }
 .fixture-board { display: flex; gap: 28px; overflow-x: auto; max-width: 100%; padding: 4px 2px 18px; scrollbar-color: var(--muted) var(--hover); }
 .fixture-round { display: flex; flex-direction: column; flex: 0 0 260px; min-width: 0; }
 .fixture-round > h4 { padding: 10px 12px; background: var(--blue); color: var(--on-fill); border-top: 3px solid var(--red); border-radius: 4px; font-size: 14px; margin-bottom: 18px; }

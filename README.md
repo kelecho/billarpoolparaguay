@@ -121,14 +121,26 @@ Para pasar datos del modo local al compartido: exportar el respaldo en el navega
 
 ## Administrar un torneo
 
-1. En **Torneos → Crear torneo**, elegir categoría, disciplina, fecha, sede y partidas necesarias para ganar cada partido.
+1. En **Torneos → Crear torneo**, elegir categoría, disciplina, fecha, sede, partidas necesarias para ganar cada partido y formato: eliminación directa o doble eliminación.
 2. Abrir **Administrar torneo** e inscribir jugadores de esa categoría. Se puede crear una ficha desde el mismo torneo y luego inscribirla.
 3. Elegir **Sorteo aleatorio**, **Cabezas de serie por ranking** o **Cabezas de serie en orden manual**. El orden manual se modifica con las flechas de los inscriptos; el cuadro distribuye las cabezas de serie y los pases libres.
 4. Realizar el sorteo inicial. Los cruces quedan guardados y se pueden consultar o compartir. Antes del primer resultado, **Volver a sortear** reemplaza los cruces y la programación; **Quitar fixture** permite corregir las inscripciones.
 5. Asignar mesa y hora, cargar los marcadores y seguir el avance a la final. Los pases libres avanzan sin cargar un resultado. El ganador debe alcanzar el número de partidas configurado, sin empate.
 6. Publicar los resultados del torneo completo para sumar puntos. Para corregir un torneo publicado, reabrirlo con un motivo; se retiran sus puntos pero se conservan los partidos. Si cambia un ganador con resultados posteriores, quitar primero los resultados dependientes, desde la final hacia atrás.
 
-El formato inicial es eliminación directa, sin partido por el tercer puesto: ambos semifinalistas eliminados comparten el tercero; los eliminados en cuartos comparten el quinto, y así sucesivamente. Un partido disputado bloquea nuevos sorteos y cambios de inscriptos. En el modo compartido, solo las cuentas con sesión modifican; el público consulta inscritos, cruces, horarios y resultados.
+### Formatos
+
+**Doble eliminación con fase final.** Quien pierde en la llave de ganadores sigue en la de perdedores; la segunda derrota elimina. Se juega así hasta que quedan los clasificados que se eligieron al crear el torneo (2, 4, 8, 16 o 32, como máximo la mitad del cuadro): la mitad llega invicta y la otra mitad con una derrota. Ellos definen el torneo por eliminación directa, a partido único y con las mismas partidas para ganar que el resto. Con 2 clasificados es la doble eliminación completa: el invicto y el ganador de perdedores juegan una gran final única, sin revancha.
+
+- Los caídos de ganadores entran a perdedores en orden inverso ronda por medio, y en el primer cruce de la fase final cada invicto enfrenta a un clasificado de la otra mitad del cuadro, no al rival que acaba de mandar a perdedores.
+- Los pases libres se propagan solos por la llave de perdedores y se marcan desde el sorteo.
+- Puestos: los eliminados en una misma ronda de perdedores comparten puesto, detrás de los clasificados y de quienes caen después (con 16 inscriptos y 8 clasificados: 13.º y 9.º en perdedores; 5.º, 3.º, 2.º y 1.º en la fase final). Con gran final única hay 3.º y 4.º puesto propios. Los puntos salen de la tabla de Configuración según el puesto; más allá del 8.º vale la participación.
+- Corregir un marcador de ganadores afecta a las dos llaves: antes hay que quitar los resultados que dependen de él, en cualquiera de las dos.
+- El formato y los clasificados quedan fijos cuando se arma el fixture. Hacen falta al menos 3 inscriptos.
+
+El cuadro no se guarda: `src/fixture.ts` lo deduce del tamaño y del formato (`layout`), así un respaldo no puede traer cruces inventados. Las pruebas juegan torneos completos con 3 a 64 inscriptos y todas las fases finales posibles.
+
+**Eliminación directa.** Sin partido por el tercer puesto: ambos semifinalistas eliminados comparten el tercero; los eliminados en cuartos comparten el quinto, y así sucesivamente. Un partido disputado bloquea nuevos sorteos y cambios de inscriptos. En el modo compartido, solo las cuentas con sesión modifican; el público consulta inscritos, cruces, horarios y resultados.
 
 ## Reglas del ranking
 
@@ -162,4 +174,4 @@ Si Playwright no puede descargar su navegador, `PLAYWRIGHT_CHANNEL=chrome` usa e
 
 ## Próxima etapa
 
-Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. Los marcadores llegan por consulta periódica; si hiciera falta que aparezcan al instante, el paso siguiente son WebSockets con Durable Objects. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como doble eliminación o grupos.
+Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. Los marcadores llegan por consulta periódica; si hiciera falta que aparezcan al instante, el paso siguiente son WebSockets con Durable Objects. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como grupos o una gran final con revancha.

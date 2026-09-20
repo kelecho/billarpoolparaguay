@@ -380,6 +380,25 @@ describe('Tablas por entidad', () => {
     expect(await Promise.all(['tournaments', 'registrations', 'matches'].map(count))).toEqual([5, 0, 0]);
   });
 
+  it('guarda y devuelve en orden un torneo de doble eliminación', async () => {
+    await login();
+    let state = createState(false);
+    const send = (action: Action) => { state = applyAction(state, action, '2030-01-01'); };
+    const entrants = Array.from({ length: 6 }, (_, i) => `j${i}`);
+    for (const id of entrants) send({ type: 'player.save', player: { id, name: `Jugador ${id}`, city: 'Asunción', club: '', initialPoints: 0, category: 'Tercera' } });
+    send({ type: 'tournament.save', tournament: { id: 'doble', name: 'Copa doble', date: '2025-03-01', venue: 'Club', discipline: 'Bola 8', category: 'Tercera', raceTo: 2, format: 'double', qualifiers: 4, results: [] } });
+    send({ type: 'registration.save', tournamentId: 'doble', playerIds: entrants });
+    send({ type: 'fixture.generate', tournamentId: 'doble', playerIds: entrants, draw: 'ranking' });
+    send({ type: 'match.score', tournamentId: 'doble', matchId: 'G1-2', scoreA: 2, scoreB: 0 });
+    expect((await call('PUT', '/api/state', { state, version: 0 })).status).toBe(200);
+    const stored = (await call('GET', '/api/state')).data.state.tournaments.find((t: { id: string }) => t.id === 'doble');
+    expect(stored).toEqual(state.tournaments.find(t => t.id === 'doble'));
+    expect(stored.fixture.matches.map((m: { id: string }) => m.id)).toEqual(['G1-1', 'G1-2', 'G1-3', 'G1-4', 'G2-1', 'G2-2', 'P1-1', 'P1-2', 'P2-1', 'P2-2', 'F1-1', 'F1-2', 'F2-1']);
+    const scored = await call('POST', '/api/actions', { action: { type: 'match.score', tournamentId: 'doble', matchId: 'G1-4', scoreA: 0, scoreB: 2 }, version: 1 });
+    expect(scored.status).toBe(200);
+    expect((await call('GET', '/api/state')).data.state).toEqual(scored.data.state);
+  });
+
   it('restaura un respaldo grande con pocas consultas', async () => {
     await login();
     const state = createState(false);

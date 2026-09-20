@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Check, Clock, Trophy } from 'lucide-react';
 import { localDate, type Action, type State, type Tournament } from '../domain';
-import { resolveFixture, roundLabel, type ResolvedMatch } from '../fixture';
+import { fixtureSections, resolveFixture, type ResolvedMatch } from '../fixture';
 import Field from './Field';
 import ConfirmButton from './ConfirmButton';
 
@@ -47,12 +47,14 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, submit }: {
 
 export default function FixtureBoard({ tournament, state, canEdit, busy, submit }: { tournament: Tournament; state: State; canEdit: boolean; busy: boolean; submit: Submit }) {
   const matches = resolveFixture(tournament);
-  const rounds = (matches.at(-1)?.round ?? 0) + 1;
   const final = matches.at(-1);
   return <>
     {final?.complete && final.winner && <div className="fixture-champion"><Trophy size={24} /><span><small>Ganador del torneo</small><strong>{state.players.find(p => p.id === final.winner)?.name}</strong></span></div>}
-    <div className="fixture-board" role="region" aria-label="Fixture del torneo" tabIndex={0}>
-      {Array.from({ length: rounds }, (_, round) => <section className="fixture-round" key={round}><h4>{roundLabel(round, rounds)}</h4><div className="fixture-round-matches">{matches.filter(m => m.round === round).map(m => <MatchCard key={`${m.id}-${m.playerA}-${m.playerB}`} match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} submit={submit} />)}</div></section>)}
-    </div>
+    {fixtureSections(matches).map(section => <section className="fixture-section" key={section.title ?? 'cuadro'}>
+      {section.title && <h4 className="fixture-section-title">{section.title}</h4>}
+      <div className="fixture-board" role="region" aria-label={section.title ?? 'Fixture del torneo'} tabIndex={0}>
+        {section.rounds.map((round, i) => <section className="fixture-round" key={i}><h4>{round.label}</h4><div className="fixture-round-matches">{round.matches.map(m => <MatchCard key={`${m.id}-${m.playerA}-${m.playerB}`} match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} submit={submit} />)}</div></section>)}
+      </div>
+    </section>)}
   </>;
 }

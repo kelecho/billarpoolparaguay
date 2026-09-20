@@ -261,3 +261,59 @@ test('las insignias siguen la categoría y los filtros muestran Segunda y Tercer
     await page.keyboard.press('Escape');
   }
 });
+
+test('juega un torneo de doble eliminación: ganadores, perdedores y gran final a partido único', async ({ page }) => {
+  await page.goto('/#/torneos');
+  await page.getByRole('button', { name: 'Crear torneo' }).click();
+  await page.getByLabel('Nombre del torneo').fill('Copa doble');
+  await page.getByLabel('Fecha', { exact: true }).fill('2025-02-01');
+  await page.getByLabel('Categoría del torneo').selectOption('Segunda');
+  await page.getByLabel('Partidas para ganar').fill('2');
+  await expect(page.getByLabel('Clasifican a la fase final')).toHaveCount(0);
+  await page.getByLabel('Formato').selectOption('double');
+  await expect(page.getByLabel('Clasifican a la fase final')).toHaveValue('2');
+  await page.getByLabel('Sede y ciudad').fill('Club doble');
+  await page.getByRole('button', { name: 'Guardar torneo' }).click();
+  await page.getByRole('article').filter({ hasText: 'Copa doble' }).getByRole('link', { name: 'Administrar torneo' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Doble eliminación · gran final a partido único');
+  for (const name of ['Alejandro Vera', 'Carlos Acosta', 'Santiago Rojas']) {
+    await dialog.getByRole('button', { name: `Inscribir a ${name}`, exact: true }).click();
+    await expect(dialog.getByRole('button', { name: `Quitar inscripción de ${name}`, exact: true })).toBeVisible();
+  }
+  await dialog.getByLabel('Armado de cruces').selectOption('ranking');
+  await dialog.getByRole('button', { name: 'Generar emparejamientos' }).click();
+  for (const name of ['Llave de ganadores', 'Llave de perdedores', 'Gran final']) await expect(dialog.getByRole('region', { name })).toBeVisible();
+  await expect(dialog).toContainText('0/4 partidos disputados');
+
+  // Con el formato fijado por el fixture, el formulario ya no deja cambiarlo.
+  await dialog.getByRole('button', { name: 'Editar torneo' }).click();
+  await expect(page.getByLabel('Formato')).toBeDisabled();
+  await expect(page.getByLabel('Clasifican a la fase final')).toBeDisabled();
+  await page.getByRole('button', { name: 'Cerrar' }).click();
+  await page.getByRole('article').filter({ hasText: 'Copa doble' }).getByRole('link', { name: 'Administrar torneo' }).click();
+
+  // Gana siempre quien figura primero: la cabeza de serie llega invicta a la gran final.
+  for (const id of ['G1-2', 'G2-1', 'P2-1', 'F1-1']) {
+    const match = dialog.getByRole('article', { name: `Partido ${id}`, exact: true });
+    await match.getByRole('button', { name: 'Cargar resultado', exact: true }).click();
+    await match.getByRole('spinbutton').nth(0).fill('2');
+    await match.getByRole('spinbutton').nth(1).fill('1');
+    await match.getByRole('button', { name: 'Guardar resultado' }).click();
+    await expect(match.getByRole('button', { name: 'Editar resultado' })).toBeVisible();
+  }
+  // Quien perdió en ganadores volvió por la llave de perdedores y jugó la final.
+  const final = dialog.getByRole('article', { name: 'Partido F1-1', exact: true });
+  await expect(final).toContainText('Alejandro Vera');
+  await expect(final).toContainText('Santiago Rojas');
+  await expect(dialog.getByRole('article', { name: 'Partido P1-1', exact: true })).toContainText('Pase libre');
+  await expect(dialog).toContainText('4/4 partidos disputados');
+  await expect(dialog).toContainText('Ganador del torneo');
+
+  await dialog.getByRole('button', { name: 'Publicar resultados del torneo' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Clasificación final' })).toBeVisible();
+  const places = await dialog.locator('.result-list li strong').allTextContents();
+  expect(places).toEqual(['1.º', '2.º', '3.º']);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

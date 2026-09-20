@@ -28,7 +28,7 @@ export function applyTournamentAction(state: State, action: TournamentAction, to
       if (current.fixture?.matches.some(m => m.scoreA !== undefined)) throw new Error('El sorteo está cerrado porque ya hay partidos disputados.');
       const registered = current.registered ?? [];
       if (!Array.isArray(action.playerIds) || action.playerIds.length !== registered.length || action.playerIds.some(id => !registered.includes(id))) throw new Error('El fixture debe incluir a todos los inscriptos.');
-      tournament.fixture = { ...buildFixture(action.playerIds), draw: action.draw ?? 'manual' };
+      tournament.fixture = { ...buildFixture(action.playerIds, current), draw: action.draw ?? 'manual' };
       break;
     }
     case 'fixture.reset':
@@ -52,10 +52,10 @@ export function applyTournamentAction(state: State, action: TournamentAction, to
         const target = current.raceTo ?? 5;
         if (![action.scoreA, action.scoreB].every(n => Number.isInteger(n) && n >= 0) || Math.max(action.scoreA, action.scoreB) !== target || Math.min(action.scoreA, action.scoreB) >= target) throw new Error(`El ganador debe llegar a ${target} partidas y el otro jugador debe tener menos.`);
         const winner = action.scoreA > action.scoreB ? match.playerA : match.playerB;
-        if (winner !== match.winner && hasScoredDescendant(fixture, match)) throw new Error('Primero quitá los resultados de las rondas posteriores que dependen de este partido.');
+        if (winner !== match.winner && hasScoredDescendant(current, match.id)) throw new Error('Primero quitá los resultados de las rondas posteriores que dependen de este partido.');
         tournament.fixture = { ...fixture, matches: fixture.matches.map(m => m.id === match.id ? { ...m, scoreA: action.scoreA, scoreB: action.scoreB } : m) };
       } else {
-        if (hasScoredDescendant(fixture, match)) throw new Error('Primero quitá los resultados de las rondas posteriores que dependen de este partido.');
+        if (hasScoredDescendant(current, match.id)) throw new Error('Primero quitá los resultados de las rondas posteriores que dependen de este partido.');
         tournament.fixture = { ...fixture, matches: fixture.matches.map(m => { if (m.id !== match.id) return m; const { scoreA: _a, scoreB: _b, ...rest } = m; return rest; }) };
       }
       break;
