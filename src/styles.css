@@ -703,6 +703,42 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .draw-panel > .field { max-width: 360px; }
 .draw-panel > .button { justify-self: start; }
 .fixture-title { display: flex; justify-content: space-between; align-items: start; gap: 15px; flex-wrap: wrap; }
+/* Sorteo: cada lugar del cuadro es una bola numerada del bolillero que gira hasta que sale el nombre. */
+.draw-wait { padding: 40px 0; text-align: center; font-family: var(--display); font-size: 22px; color: var(--ink); }
+.draw-reveal { display: grid; gap: 18px; padding: 22px; border-radius: 10px; background: radial-gradient(ellipse at 50% 0, #1d4f86, var(--blue-deep) 70%); color: #fffefa; box-shadow: inset 0 0 0 1px #ffffff1f, 0 14px 36px #102e5038; }
+.draw-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+.draw-head svg { color: #f3c74d; }
+.draw-head h3 { font-family: var(--display); font-size: 24px; font-weight: 400; color: #fffefa; }
+.draw-count { font-family: var(--mono); font-size: 12px; color: #c9d8e6; }
+.draw-track { height: 3px; border-radius: 99px; background: #ffffff24; overflow: hidden; }
+.draw-track > i { display: block; height: 100%; background: var(--gold-metal); transition: width .25s ease-out; }
+.draw-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.draw-matches > li { display: grid; gap: 7px; padding: 12px; border: 1px solid #ffffff24; border-radius: 8px; background: #ffffff0d; transition: border-color .3s, background .3s; }
+.draw-matches > li.draw-paired { border-color: #f3c74d99; background: #ffffff17; }
+.draw-match-number { font-family: var(--mono); font-size: 10px; letter-spacing: .6px; text-transform: uppercase; color: #a9bdd1; }
+.draw-slot { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 10px; min-height: 32px; }
+.draw-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; color: #c9d8e6; filter: blur(1.4px); opacity: .75; }
+.draw-out .draw-name { filter: none; opacity: 1; color: #fffefa; font-weight: 700; animation: draw-pop .42s cubic-bezier(.2, 1.6, .4, 1); }
+.draw-bye .draw-name { color: #a9bdd1; font-weight: 500; font-style: italic; }
+.draw-ball { --ball: #f2c230; position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-style: normal; background: radial-gradient(circle at 32% 28%, #ffffffb8 0 9%, transparent 26%), radial-gradient(circle at 50% 50%, var(--ball) 0 62%, #00000052 100%); box-shadow: 0 3px 6px #0000004d; animation: draw-spin .42s linear infinite; }
+.draw-ball > b { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: #fffefa; color: #15181d; font-family: var(--mono); font-size: 8px; font-weight: 600; }
+.draw-out .draw-ball { animation: draw-land .5s cubic-bezier(.2, 1.5, .4, 1); box-shadow: 0 0 0 2px #f3c74d, 0 3px 8px #0000005c; }
+.draw-ball-2, .draw-ball-10 { --ball: #1f5fbf; }
+.draw-ball-3, .draw-ball-11 { --ball: #d1343f; }
+.draw-ball-4, .draw-ball-12 { --ball: #5b3a9b; }
+.draw-ball-5, .draw-ball-13 { --ball: #ef7d22; }
+.draw-ball-6, .draw-ball-14 { --ball: #1f8a5f; }
+.draw-ball-7, .draw-ball-15 { --ball: #8b2332; }
+.draw-ball-8 { --ball: #15181d; }
+/* De la 9 a la 15 son rayadas: bola blanca con una franja del color. */
+.draw-ball-9, .draw-ball-10, .draw-ball-11, .draw-ball-12, .draw-ball-13, .draw-ball-14, .draw-ball-15 { background: radial-gradient(circle at 32% 28%, #ffffffb8 0 9%, transparent 26%), linear-gradient(#fffefa 0 22%, var(--ball) 22% 78%, #fffefa 78%); }
+.draw-reveal .modal-actions { justify-content: center; }
+.draw-reveal .modal-actions .button { flex: 0 1 260px; }
+.draw-reveal .modal-actions .button:not(.primary) { background: transparent; border-color: #ffffff40; color: #fffefa; }
+@keyframes draw-spin { to { transform: rotate(360deg); } }
+@keyframes draw-land { 0% { transform: scale(1.5) rotate(-120deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes draw-pop { 0% { transform: translateX(-10px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .draw-ball, .draw-out .draw-ball, .draw-out .draw-name { animation: none; } .draw-name { filter: none; } }
 .fixture-tabs { position: sticky; top: 0; z-index: 2; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; padding: 8px 0 12px; background: var(--paper); }
 .fixture-tab { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; text-align: left; border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); min-width: 0; }
 .fixture-tab strong { display: block; font-family: var(--display); font-size: 16px; font-weight: 400; }

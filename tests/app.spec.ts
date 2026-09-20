@@ -435,3 +435,53 @@ test.describe('instalación en el dispositivo', () => {
     await expect(page.locator('.install-banner')).toHaveCount(0);
   });
 });
+
+test.describe('sorteo con suspenso', () => {
+  test.use({ contextOptions: { reducedMotion: 'no-preference' } });
+
+  test('gira el bolillero, revela los cruces de a uno y muestra exactamente lo que quedó guardado', async ({ page }) => {
+    test.slow();
+    await page.goto('/#/torneos');
+    await page.getByRole('button', { name: 'Crear torneo' }).click();
+    await page.getByLabel('Nombre del torneo').fill('Copa del bolillero');
+    await page.getByLabel('Fecha', { exact: true }).fill('2025-02-01');
+    await page.getByLabel('Categoría del torneo').selectOption('Segunda');
+    await page.getByLabel('Sede y ciudad').fill('Club del sorteo');
+    await page.getByRole('button', { name: 'Guardar torneo' }).click();
+    await page.getByRole('article').filter({ hasText: 'Copa del bolillero' }).getByRole('link', { name: 'Administrar torneo' }).click();
+    const dialog = page.getByRole('dialog');
+    const entrants = ['Alejandro Vera', 'Carlos Acosta', 'Santiago Rojas', 'Miguel Duarte'];
+    for (const name of entrants) {
+      await dialog.getByRole('button', { name: `Inscribir a ${name}`, exact: true }).click();
+      await expect(dialog.getByRole('button', { name: `Quitar inscripción de ${name}`, exact: true })).toBeVisible();
+    }
+    await dialog.getByRole('button', { name: 'Realizar sorteo inicial' }).click();
+
+    // Mientras gira, el fixture no está a la vista y los nombres van pasando.
+    const draw = dialog.getByRole('region', { name: 'Sorteo de los cruces' });
+    await expect(draw.getByRole('status')).toHaveText('Girando el bolillero…');
+    await expect(dialog.getByRole('region', { name: 'Fixture del torneo' })).toHaveCount(0);
+    const rolling = draw.locator('.draw-name').first();
+    const seen = new Set<string>();
+    await expect.poll(async () => { seen.add(await rolling.innerText()); return seen.size; }, { intervals: [60] }).toBeGreaterThan(1);
+    await expect(draw.locator('.draw-out')).toHaveCount(0);
+
+    await expect(draw.getByRole('status')).toHaveText('Saliendo los cruces…', { timeout: 6000 });
+    await expect(draw.getByRole('status')).toHaveText('Sorteo listo', { timeout: 12000 });
+    await expect(draw.locator('.draw-out')).toHaveCount(4);
+    const revealed = await draw.locator('.draw-name').allInnerTexts();
+    expect([...revealed].sort()).toEqual([...entrants].sort());
+
+    await draw.getByRole('button', { name: 'Ver el fixture' }).click();
+    const firstRound = dialog.getByRole('region', { name: 'Fixture del torneo' }).locator('.fixture-round').first().locator('.match-name');
+    expect(await firstRound.allInnerTexts()).toEqual(revealed);
+
+    // Cualquiera puede volver a verlo; saltarlo lleva directo al mismo fixture.
+    await dialog.getByRole('button', { name: 'Ver el sorteo otra vez' }).click();
+    await expect(draw.getByRole('status')).toHaveText('Girando el bolillero…');
+    await draw.getByRole('button', { name: 'Saltar la animación' }).click();
+    expect(await firstRound.allInnerTexts()).toEqual(revealed);
+    await page.reload();
+    expect(await firstRound.allInnerTexts()).toEqual(revealed);
+  });
+});

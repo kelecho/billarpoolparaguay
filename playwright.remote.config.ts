@@ -6,7 +6,9 @@ export default defineConfig({
   testDir: './tests',
   testMatch: 'remote.spec.ts',
   workers: 1,
-  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure', channel: process.env.PLAYWRIGHT_CHANNEL },
+  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure', channel: process.env.PLAYWRIGHT_CHANNEL,
+    // Sin animaciones el sorteo va directo al fixture; la revelación tiene su propia prueba con movimiento.
+    contextOptions: { reducedMotion: 'reduce' } },
   projects: [{ name: 'desktop', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: `npm run build:remote && node server.mjs --port ${PORT}`,
