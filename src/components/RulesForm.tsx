@@ -14,14 +14,13 @@ export default function RulesForm({ rules, onSave }: { rules: Rules; onSave: (ru
     <form className="panel settings-panel" onSubmit={e => { e.preventDefault(); onSave(draft); }}>
       <h2>Categorías y puntuación</h2>
       <p className="muted">Los cambios de puntuación se aplican a los próximos resultados publicados. Los resultados anteriores conservan sus puntos.</p>
-      <h3>Puntos mínimos por categoría</h3>
+      <h3>Categorías</h3>
       {draft.categories.map((c, index) => (
         <div className="form-grid" key={index}>
           <Field label={`Categoría ${index + 1}`}><input value={c.name} required maxLength={150} onChange={e => setCategory(index, { name: e.target.value })} /></Field>
-          <Field label="Puntos mínimos"><input type="number" {...LIMIT} required value={c.min} onChange={e => setCategory(index, { min: Number(e.target.value) })} /></Field>
         </div>
       ))}
-      <p className="muted small">Una categoría debe comenzar en 0. Los nombres y mínimos deben ser distintos.</p>
+      <p className="muted small">Cada jugador tiene una categoría asignada. Sumar puntos no provoca ascensos; las reglas de traspaso se definirán más adelante. Los nombres deben ser distintos.</p>
       <h3>Puntos por puesto</h3>
       <div className="points-grid">
         {draft.points.map((p, index) => (

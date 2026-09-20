@@ -1,23 +1,25 @@
 import { Pencil, Share2 } from 'lucide-react';
-import { dateLabel, number, type RankedPlayer } from '../domain';
+import { dateLabel, number, type RankedPlayer, type Rules } from '../domain';
 import { pageHref } from '../useHashRoute';
 import Avatar from './Avatar';
 import PointsChart from './PointsChart';
+import CategoryBadge from './CategoryBadge';
 
-type Props = { player: RankedPlayer; canEdit: boolean; onEdit: () => void; onShare: () => void };
+type Props = { player: RankedPlayer; rules: Rules; canEdit: boolean; onEdit: () => void; onShare: () => void };
 
-export default function PlayerProfile({ player, canEdit, onEdit, onShare }: Props) {
+export default function PlayerProfile({ player, rules, canEdit, onEdit, onShare }: Props) {
   return (
     <div className="form-stack">
       <div className="profile-heading">
-        <Avatar name={player.name} tone={player.rank} />
+        <Avatar name={player.name} tone={player.rank} photo={player.photo} />
         <div>
           <h3>{player.name}</h3>
-          <p className="muted">{player.city} · {player.club || 'Sin club'} · {player.category}</p>
+          <p className="muted">{player.city} · {player.club || 'Sin club'}</p>
         </div>
       </div>
+      <div className="profile-category"><CategoryBadge category={player.category} rules={rules} large /><p>La categoría se mantiene al sumar puntos. Los ascensos se definirán más adelante.</p></div>
       <div className="profile-stats">
-        <div><strong>#{player.rank}</strong><span>Posición</span></div>
+        <div><strong>#{player.categoryRank}</strong><span>En {player.category}</span></div>
         <div><strong>{number(player.points)}</strong><span>Puntos</span></div>
         <div><strong>{player.wins}</strong><span>Victorias</span></div>
         <div><strong>{player.podiums}</strong><span>Podios</span></div>

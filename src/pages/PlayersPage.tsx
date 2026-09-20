@@ -1,3 +1,4 @@
+import CategoryBadge from '../components/CategoryBadge';
 import { useState } from 'react';
 import { Plus, Search, Users } from 'lucide-react';
 import Avatar from '../components/Avatar';
@@ -8,11 +9,12 @@ type Props = { state: State; ranking: RankedPlayer[]; canEdit: boolean; onAddPla
 
 export default function PlayersPage({ state, ranking, canEdit, onAddPlayer }: Props) {
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('');
   const [city, setCity] = useState('');
   const cities = [...new Set(state.players.map(p => p.city))].sort((a, b) => a.localeCompare(b, 'es'));
   const needle = query.toLocaleLowerCase('es');
   const players = ranking
-    .filter(p => (!city || p.city === city) && `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(needle))
+    .filter(p => (!category || p.category === category) && (!city || p.city === city) && `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(needle))
     .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
   return (
@@ -32,14 +34,15 @@ export default function PlayersPage({ state, ranking, canEdit, onAddPlayer }: Pr
           {cities.map(c => <option key={c}>{c}</option>)}
         </select>
       </div>
+      <div className="category-tabs" role="group" aria-label="Categoría de jugadores">{['', ...state.rules.categories.map(c => c.name)].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'selected' : ''} onClick={() => setCategory(c)}>{c || 'Todas'}</button>)}</div>
       <ul className="player-grid">
         {players.map(p => (
           <li key={p.id}>
             <a className="player-card" href={pageHref('Jugadores', { jugador: p.id })}>
-              <Avatar name={p.name} tone={p.rank} />
+              <Avatar name={p.name} tone={p.rank} photo={p.photo} />
               <span className="player-card-name"><strong>{p.name}</strong><small>{p.city} · {p.club || 'Independiente'}</small></span>
-              <span className="player-card-rank">#{p.rank}</span>
-              <span className={`category category-${state.rules.categories.findIndex(c => c.name === p.category)}`}>{p.category}</span>
+              <span className="player-card-rank" aria-label={`Puesto ${p.categoryRank} en ${p.category}`}>#{p.categoryRank}</span>
+              <CategoryBadge category={p.category} rules={state.rules} />
               <span className="player-card-points">{number(p.points)} pts</span>
             </a>
           </li>

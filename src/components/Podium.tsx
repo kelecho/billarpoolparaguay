@@ -2,11 +2,11 @@ import { Trophy } from 'lucide-react';
 import { number, type RankedPlayer } from '../domain';
 import { pageHref } from '../useHashRoute';
 
-/** Los tres primeros del ranking general, con el líder al centro como en un podio. */
-export default function Podium({ players }: { players: RankedPlayer[] }) {
+/** Los tres primeros del ranking seleccionado, con el líder al centro como en un podio. */
+export default function Podium({ players, label = 'Podio del ranking general' }: { players: RankedPlayer[]; label?: string }) {
   if (players.length < 3) return null;
   return (
-    <ol className="podium" aria-label="Podio del ranking general">
+    <ol className="podium" aria-label={label}>
       {players.slice(0, 3).map(p => (
         <li key={p.id} className={`podium-step podium-${p.rank}`}>
           <a href={pageHref('Ranking', { jugador: p.id })}>

@@ -6,7 +6,8 @@ type Props = { state: State; canEdit: boolean; onCreate: () => void; renderTourn
 
 export default function TournamentsPage({ state, canEdit, onCreate, renderTournament }: Props) {
   const [discipline, setDiscipline] = useState<Discipline | 'Todas'>('Todas');
-  const shown = state.tournaments.filter(t => discipline === 'Todas' || t.discipline === discipline);
+  const [category, setCategory] = useState('');
+  const shown = state.tournaments.filter(t => (discipline === 'Todas' || t.discipline === discipline) && (!category || t.category === category));
   const pending = shown.filter(t => !t.results.length).sort((a, b) => a.date.localeCompare(b.date));
   const finished = shown.filter(t => t.results.length).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -24,13 +25,14 @@ export default function TournamentsPage({ state, canEdit, onCreate, renderTourna
         <div className="category-tabs" role="group" aria-label="Filtrar disciplina">
           {(['Todas', ...DISCIPLINES] as const).map(d => <button key={d} aria-pressed={discipline === d} className={discipline === d ? 'selected' : ''} onClick={() => setDiscipline(d)}>{d}</button>)}
         </div>
+        <select aria-label="Filtrar torneos por categoría" className="city-filter" value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas las categorías</option>{state.rules.categories.map(c => <option key={c.name}>{c.name}</option>)}</select>
       </div>
       {pending.length > 0 && <><h2 className="group-title">Agenda</h2><div className="tournament-grid">{pending.map(renderTournament)}</div></>}
       {finished.length > 0 && <><h2 className="group-title">Resultados</h2><div className="tournament-grid">{finished.map(renderTournament)}</div></>}
       {!shown.length && (
         <div className="empty">
           <CalendarDays size={30} />
-          <h3>{state.tournaments.length ? `Sin torneos de ${discipline}` : 'La próxima partida empieza acá'}</h3>
+          <h3>{state.tournaments.length ? 'No hay torneos con estos filtros' : 'La próxima partida empieza acá'}</h3>
           <p>{canEdit ? 'Creá un torneo para registrar sus resultados.' : 'Pronto vas a ver acá los próximos encuentros.'}</p>
         </div>
       )}

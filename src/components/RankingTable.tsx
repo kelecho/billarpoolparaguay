@@ -1,3 +1,4 @@
+import CategoryBadge from './CategoryBadge';
 import { ArrowDown, ArrowUp, Users } from 'lucide-react';
 import { number, type RankedPlayer, type State } from '../domain';
 import { pageHref } from '../useHashRoute';
@@ -31,11 +32,11 @@ export default function RankingTable({ players, total, leaderPoints, state, empt
               <td><span className={`rank rank-${p.rank}`}>{String(p.rank).padStart(2, '0')}</span></td>
               <td>
                 <a className="player-link" href={pageHref('Ranking', { jugador: p.id })}>
-                  <Avatar name={p.name} tone={p.rank} />
+                  <Avatar name={p.name} tone={p.rank} photo={p.photo} />
                   <span><strong>{p.name}</strong><small>{p.city}<span className="player-club"> · {p.club || 'Independiente'}</span></small></span>
                 </a>
               </td>
-              <td><span className={`category category-${state.rules.categories.findIndex(c => c.name === p.category)}`}>{p.category}</span></td>
+              <td><CategoryBadge category={p.category} rules={state.rules} /></td>
               <td className="muted">{p.played}</td>
               <td className="score">
                 <span>{number(p.points)}<small> pts</small></span>

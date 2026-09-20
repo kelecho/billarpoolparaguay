@@ -1,9 +1,13 @@
+import { MAX_ENTRANTS, validateFixture, type Fixture } from './fixture.ts';
+import { applyTournamentAction, type TournamentAction } from './tournamentActions.ts';
+import { validPlayerPhoto } from './playerPhoto.ts';
+
 export const DISCIPLINES = ['Bola 8', 'Bola 9', 'Bola 10'] as const;
 export type Discipline = (typeof DISCIPLINES)[number];
 
-export type Player = { id: string; name: string; city: string; club: string; initialPoints: number };
+export type Player = { id: string; name: string; city: string; club: string; initialPoints: number; photo?: string; category?: string };
 export type Result = { playerId: string; place: number; points: number };
-export type Tournament = { id: string; name: string; date: string; venue: string; discipline: Discipline; results: Result[] };
+export type Tournament = { id: string; name: string; date: string; venue: string; discipline: Discipline; results: Result[]; category?: string; registered?: string[]; raceTo?: number; fixture?: Fixture };
 export type Rules = { categories: { name: string; min: number }[]; points: number[]; participation: number };
 export type State = { version: 1; demo: boolean; players: Player[]; tournaments: Tournament[]; rules: Rules };
 export type Entry = Result & { tournament: Tournament };
@@ -12,6 +16,7 @@ export type RankedPlayer = Player & {
   category: string;
   rank: number;
   previousRank: number;
+  categoryRank: number;
   played: number;
   wins: number;
   podiums: number;
@@ -19,6 +24,7 @@ export type RankedPlayer = Player & {
   entries: Entry[];
 };
 export type Action =
+  | TournamentAction
   | { type: 'player.save'; player: Player }
   | { type: 'player.remove'; playerId: string }
   | { type: 'tournament.save'; tournament: Tournament }
@@ -52,33 +58,29 @@ export const dateIn = (timeZone: string, now = new Date()) => new Intl.DateTimeF
 
 const byDate = (a: Tournament, b: Tournament) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id);
 
-/**
- * Ranking general o por disciplina. El general suma los puntos iniciales; el de una disciplina
- * cuenta solo los puntos ganados en sus torneos y omite a quienes no la jugaron.
- * La categoría siempre sale del puntaje general.
- */
-export function standings(state: State, discipline?: Discipline): RankedPlayer[] {
-  const tournaments = state.tournaments.filter(t => t.results.length && (!discipline || t.discipline === discipline));
-  const latest = [...tournaments].sort(byDate).at(-1);
-  const total = (player: Player) => player.initialPoints + state.tournaments.reduce((sum, t) => sum + (t.results.find(r => r.playerId === player.id)?.points ?? 0), 0);
+/** Los registros antiguos conservan su categoría al migrar; los puntos ya no causan ascensos. */
+export function playerCategory(player: Player, state: State): string {
+  return player.category ?? categoryFor(player.initialPoints + state.tournaments.reduce((sum, t) => sum + (t.results.find(r => r.playerId === player.id)?.points ?? 0), 0), state.rules);
+}
 
-  const players = state.players.map(player => {
+/** Filtra la categoría antes de numerar posiciones y calcular movimientos. */
+export function standings(state: State, discipline?: Discipline, category?: string): RankedPlayer[] {
+  const roster = state.players.filter(p => !category || playerCategory(p, state) === category);
+  const rosterIds = new Set(roster.map(p => p.id));
+  const tournaments = state.tournaments.filter(t => t.results.some(r => rosterIds.has(r.playerId)) && (!discipline || t.discipline === discipline));
+  const latest = [...tournaments].sort(byDate).at(-1);
+  const players = roster.map(player => {
     const entries = tournaments
       .flatMap(t => t.results.filter(r => r.playerId === player.id).map(r => ({ ...r, tournament: t })))
       .sort((a, b) => byDate(a.tournament, b.tournament));
     const points = (discipline ? 0 : player.initialPoints) + entries.reduce((sum, r) => sum + r.points, 0);
     return {
-      ...player,
-      points,
-      category: categoryFor(discipline ? total(player) : points, state.rules),
-      played: entries.length,
+      ...player, points, category: playerCategory(player, state), played: entries.length,
       wins: entries.filter(r => r.place === 1).length,
       podiums: entries.filter(r => r.place <= 3).length,
-      bestPlace: entries.length ? Math.min(...entries.map(r => r.place)) : null,
-      entries,
+      bestPlace: entries.length ? Math.min(...entries.map(r => r.place)) : null, entries,
     };
   }).filter(p => !discipline || p.played);
-
   const previous = players.map(p => {
     const last = p.entries.find(e => e.tournament.id === latest?.id);
     return { id: p.id, name: p.name, points: p.points - (last?.points ?? 0), wins: p.wins - (last?.place === 1 ? 1 : 0) };
@@ -86,7 +88,13 @@ export function standings(state: State, discipline?: Discipline): RankedPlayer[]
   const sort = (a: { points: number; wins: number; name: string }, b: { points: number; wins: number; name: string }) =>
     b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name, 'es');
   previous.sort(sort);
-  return players.sort(sort).map((p, i) => ({ ...p, rank: i + 1, previousRank: previous.findIndex(old => old.id === p.id) + 1 }));
+  const ordered = players.sort(sort);
+  const counts = new Map<string, number>();
+  return ordered.map((p, i) => {
+    const categoryRank = (counts.get(p.category) ?? 0) + 1;
+    counts.set(p.category, categoryRank);
+    return { ...p, rank: i + 1, categoryRank, previousRank: previous.findIndex(old => old.id === p.id) + 1 };
+  });
 }
 
 /** Puntaje acumulado del jugador después de cada torneo, empezando por sus puntos iniciales. */
@@ -110,6 +118,8 @@ export function validateState(input: unknown): State {
   if (!Array.isArray(rules.points) || rules.points.length !== 8 || !rules.points.every(num) || !num(rules.participation)) return fail();
 
   if (!value.players.every(p => p && str(p.id) && str(p.name) && str(p.city) && typeof p.club === 'string' && p.club.length <= 150 && num(p.initialPoints))) return fail();
+  if (!value.players.every(p => p.photo === undefined || validPlayerPhoto(p.photo))) throw new Error('La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
+  if (value.players.some(p => p.category !== undefined && !rules.categories.some(c => c.name === p.category))) return fail();
   const ids = new Set(value.players.map(p => p.id));
   if (ids.size !== value.players.length || new Set(value.tournaments.map(t => t?.id)).size !== value.tournaments.length) return fail();
 
@@ -117,19 +127,30 @@ export function validateState(input: unknown): State {
     if (!t || !str(t.id) || !str(t.name) || !str(t.venue) || !DISCIPLINES.includes(t.discipline) || !Array.isArray(t.results)) return fail();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || !Number.isFinite(Date.parse(t.date)) || new Date(`${t.date}T12:00:00Z`).toISOString().slice(0, 10) !== t.date) return fail();
     if (!t.results.every(r => r && ids.has(r.playerId) && Number.isInteger(r.place) && r.place > 0 && r.place <= 512 && num(r.points))) return fail();
-    if (new Set(t.results.map(r => r.playerId)).size !== t.results.length || new Set(t.results.map(r => r.place)).size !== t.results.length) return fail();
+    if (new Set(t.results.map(r => r.playerId)).size !== t.results.length || (!t.fixture && new Set(t.results.map(r => r.place)).size !== t.results.length)) return fail();
+    if (t.category !== undefined && !rules.categories.some(c => c.name === t.category)) return fail();
+    if (t.raceTo !== undefined && (!Number.isInteger(t.raceTo) || t.raceTo < 1 || t.raceTo > 30)) return fail();
+    if (t.registered !== undefined && (!Array.isArray(t.registered) || t.registered.length > MAX_ENTRANTS || new Set(t.registered).size !== t.registered.length || t.registered.some(id => !ids.has(id)))) return fail();
+    if ((t.fixture || t.registered?.length) && !t.category) return fail();
+    if (t.registered?.some(id => playerCategory(value.players.find(p => p.id === id)!, value) !== t.category)) return fail();
+    if (t.category && t.results.some(r => !t.registered?.includes(r.playerId))) return fail();
+    if (t.fixture !== undefined && (!t.fixture || typeof t.fixture !== 'object')) return fail();
+    validateFixture(t);
   }
-  return value;
+  return { ...value, players: value.players.map(p => p.category ? p : { ...p, category: playerCategory(p, value) }) };
 }
 
 const same = (a: string, b: string) => a.trim().toLocaleLowerCase('es') === b.trim().toLocaleLowerCase('es');
 
 /** `today` permite al servidor decidir la fecha con la zona horaria del Paraguay. */
 export function applyAction(state: State, action: Action, today = localDate()): State {
+  state = validateState(state);
   let next: State;
   switch (action.type) {
     case 'player.save': {
-      const player = action.player;
+      const current = state.players.find(p => p.id === action.player.id);
+      const player = { ...action.player, category: action.player.category ?? current?.category ?? [...state.rules.categories].sort((a, b) => a.min - b.min)[0].name };
+      if (current && player.category !== current.category && state.tournaments.some(t => t.registered?.includes(player.id) || t.results.some(r => r.playerId === player.id))) throw new Error('El jugador ya tiene participación. El traspaso de categoría se definirá más adelante.');
       if (state.players.some(p => p.id !== player.id && same(p.name, player.name) && same(p.city, player.city))) throw new Error('Ya existe un jugador con ese nombre y ciudad.');
       next = { ...state, players: state.players.some(p => p.id === player.id) ? state.players.map(p => p.id === player.id ? player : p) : [...state.players, player] };
       break;
@@ -137,13 +158,17 @@ export function applyAction(state: State, action: Action, today = localDate()): 
     case 'player.remove': {
       if (!state.players.some(p => p.id === action.playerId)) throw new Error('El jugador no existe.');
       if (state.tournaments.some(t => t.results.some(r => r.playerId === action.playerId))) throw new Error('Este jugador tiene resultados publicados. Reabrí esos torneos antes de eliminarlo.');
+      if (state.tournaments.some(t => t.registered?.includes(action.playerId))) throw new Error('Quitá al jugador de los torneos en los que está inscripto antes de eliminarlo.');
       next = { ...state, players: state.players.filter(p => p.id !== action.playerId) };
       break;
     }
     case 'tournament.save': {
       const current = state.tournaments.find(t => t.id === action.tournament.id);
       if (current?.results.length) throw new Error('Reabrí el torneo antes de editarlo.');
-      const tournament = { ...action.tournament, results: current?.results || [] };
+      if (!current && !action.tournament.category) throw new Error('Elegí la categoría del torneo.');
+      if (current?.registered?.length && action.tournament.category !== current.category) throw new Error('Quitá los inscriptos antes de cambiar la categoría del torneo.');
+      if (current?.fixture && ((action.tournament.raceTo ?? 5) !== (current.raceTo ?? 5) || action.tournament.discipline !== current.discipline || action.tournament.date !== current.date)) throw new Error('No se puede cambiar la fecha, disciplina o partidas para ganar con el fixture armado.');
+      const tournament = { ...action.tournament, registered: current?.registered ?? [], fixture: current?.fixture, results: current?.results || [] };
       next = { ...state, tournaments: current ? state.tournaments.map(t => t.id === tournament.id ? tournament : t) : [...state.tournaments, tournament] };
       break;
     }
@@ -151,12 +176,14 @@ export function applyAction(state: State, action: Action, today = localDate()): 
       const current = state.tournaments.find(t => t.id === action.tournamentId);
       if (!current) throw new Error('El torneo no existe.');
       if (current.results.length) throw new Error('Reabrí el torneo antes de eliminarlo.');
+      if (current.fixture?.matches.some(m => m.scoreA !== undefined)) throw new Error('Quitá los resultados de los partidos antes de eliminar el torneo.');
       next = { ...state, tournaments: state.tournaments.filter(t => t.id !== action.tournamentId) };
       break;
     }
     case 'results.publish': {
       const tournament = state.tournaments.find(t => t.id === action.tournamentId);
       if (!tournament || tournament.results.length) throw new Error('El torneo ya tiene resultados o no existe.');
+      if (tournament.category || tournament.fixture) throw new Error('Publicá los resultados desde el fixture del torneo.');
       if (!Array.isArray(action.placements) || !action.placements.length) throw new Error('Agregá al menos un jugador.');
       if (tournament.date > today) throw new Error('Podrás publicar resultados a partir de la fecha del torneo.');
       const results = action.placements.map(r => ({ playerId: r.playerId, place: r.place, points: state.rules.points[r.place - 1] ?? state.rules.participation }));
@@ -170,8 +197,15 @@ export function applyAction(state: State, action: Action, today = localDate()): 
       next = { ...state, tournaments: state.tournaments.map(t => t.id === action.tournamentId ? { ...t, results: [] } : t) };
       break;
     }
-    case 'rules.save':
-      next = { ...state, rules: action.rules };
+    case 'rules.save': {
+      // Conserva las asociaciones cuando se renombra una categoría.
+      const renamed = (name: string | undefined) => name === undefined ? undefined : action.rules.categories[state.rules.categories.findIndex(c => c.name === name)]?.name ?? name;
+      next = { ...state, rules: action.rules, players: state.players.map(p => ({ ...p, category: renamed(p.category) })), tournaments: state.tournaments.map(t => ({ ...t, category: renamed(t.category) })) };
+      break;
+    }
+    case 'registration.save': case 'fixture.generate': case 'fixture.reset':
+    case 'match.score': case 'match.clear': case 'match.schedule': case 'fixture.publish':
+      next = applyTournamentAction(state, action, today);
       break;
     default:
       throw new Error('Acción no reconocida.');
@@ -190,6 +224,13 @@ export function describeAction(state: State, action: Action): string {
     case 'results.publish': return `Publicó ${action.placements?.length ?? 0} resultados de ${tournament(action.tournamentId)}`;
     case 'results.reopen': return `Reabrió ${tournament(action.tournamentId)}`;
     case 'rules.save': return 'Cambió las reglas de categorías y puntuación';
+    case 'registration.save': return `Actualizó los inscriptos de ${tournament(action.tournamentId)}`;
+    case 'fixture.generate': return `Generó el fixture de ${tournament(action.tournamentId)}`;
+    case 'fixture.reset': return `Quitó el fixture de ${tournament(action.tournamentId)}`;
+    case 'match.score': return `Registró el partido ${action.matchId} de ${tournament(action.tournamentId)}`;
+    case 'match.clear': return `Quitó el resultado del partido ${action.matchId} de ${tournament(action.tournamentId)}`;
+    case 'match.schedule': return `Programó el partido ${action.matchId} de ${tournament(action.tournamentId)}`;
+    case 'fixture.publish': return `Publicó los resultados del fixture de ${tournament(action.tournamentId)}`;
   }
 }
 
@@ -213,5 +254,5 @@ export function createState(demo = true): State {
     { id: 't4', name: 'Clásico de Luque', date: localDate(-28), venue: 'Club Luque · Luque', discipline: 'Bola 8', results: results([1, 3, 6, 2, 7, 10, 5, 8]) },
     { id: 't5', name: 'Apertura La Tronera', date: localDate(-56), venue: 'La Tronera · San Lorenzo', discipline: 'Bola 9', results: results([3, 1, 5, 8, 2, 4, 12, 7]) },
   ];
-  return state;
+  return validateState(state);
 }

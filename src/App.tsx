@@ -10,7 +10,7 @@ import PlayerProfile from './components/PlayerProfile';
 import ResultsForm from './components/ResultsForm';
 import TournamentCard from './components/TournamentCard';
 import TournamentForm from './components/TournamentForm';
-import TournamentResults from './components/TournamentResults';
+import TournamentManager from './components/TournamentManager';
 import { dateLabel, localDate, standings, type Action, type Player, type State, type Tournament } from './domain';
 import PlayersPage from './pages/PlayersPage';
 import RankingPage from './pages/RankingPage';
@@ -23,7 +23,7 @@ import { useTheme } from './useTheme';
 
 /** Diálogos de edición. El perfil y los resultados de un torneo se abren desde la URL, no desde acá. */
 type Modal =
-  | { kind: 'player'; player?: Player }
+  | { kind: 'player'; player?: Player; category?: string }
   | { kind: 'tournament'; tournament?: Tournament }
   | { kind: 'results'; tournament: Tournament }
   | { kind: 'reopen'; tournament: Tournament }
@@ -77,7 +77,7 @@ export default function App() {
   }
   const dispatch = (action: Action) => void run(async () => {
     await store.dispatch(action);
-    if (action.type === 'player.remove' || action.type === 'results.reopen') navigate(pageHref(page));
+    if (action.type === 'player.remove' || action.type === 'tournament.remove') navigate(pageHref(page));
   });
   function exportBackup() {
     try { downloadJSON(store.exportContent(), `pool-paraguay-${localDate()}.json`); } catch (e) { setError(errorMessage(e)); }
@@ -126,10 +126,10 @@ export default function App() {
           {store.offlineSince && <div className="demo-banner"><WifiOff size={16} /><span>Sin conexión. Mostramos el ranking guardado el {dateLabel(store.offlineSince.slice(0, 10))}.</span></div>}
           {store.storageBlocked && <p role="alert" className="error">No se pudo leer el respaldo local. Los cambios están bloqueados para protegerlo. Exportá los datos originales desde Configuración.</p>}
           {store.loadError && !store.storageBlocked && <p role="alert" className="error">{store.loadError}</p>}
-          {error && !modal && <p className="error" role="alert">{error}</p>}
+          {error && !modalTitle && <p className="error" role="alert">{error}</p>}
 
           {store.status === 'loading' ? <p className="empty" role="status">Cargando el ranking…</p> : <>
-            {page === 'Ranking' && <RankingPage state={state} ranking={ranking} canEdit={canEdit} onAddPlayer={() => open({ kind: 'player' })} renderTournament={renderTournament} />}
+            {page === 'Ranking' && <RankingPage state={state} canEdit={canEdit} onAddPlayer={() => open({ kind: 'player' })} renderTournament={renderTournament} />}
             {page === 'Jugadores' && <PlayersPage state={state} ranking={ranking} canEdit={canEdit} onAddPlayer={() => open({ kind: 'player' })} />}
             {page === 'Torneos' && <TournamentsPage state={state} canEdit={canEdit} onCreate={() => open({ kind: 'tournament' })} renderTournament={renderTournament} />}
             {page === 'Configuración' && <SettingsPage store={store} onSaveRules={rules => dispatch({ type: 'rules.save', rules })} onExport={exportBackup} onReplace={next => open({ kind: 'replace', state: next })} onError={e => setError(errorMessage(e))} onLogout={() => void run(async () => { await store.logout(); navigate(pageHref('Ranking')); }, 'Sesión cerrada.')} />}
@@ -153,12 +153,12 @@ export default function App() {
       {needRefresh && <div className="update-banner" role="status">Hay una nueva versión disponible.<button className="button" onClick={() => void updateServiceWorker(true)}>Actualizar</button></div>}
 
       {modalTitle && (
-        <ModalFrame key={modal?.kind ?? profile?.id ?? shownTournament?.id} title={modalTitle} onClose={closeModal}>
+        <ModalFrame wide={!modal && Boolean(shownTournament)} key={modal?.kind ?? profile?.id ?? shownTournament?.id} title={modalTitle} onClose={closeModal}>
           {error && <p role="alert" className="error">{error}</p>}
-          {!modal && profile && <PlayerProfile player={profile} canEdit={canEdit} onEdit={() => open({ kind: 'player', player: profile })} onShare={() => void share(profile.name)} />}
-          {!modal && shownTournament && <TournamentResults tournament={shownTournament} state={state} canEdit={canEdit} onReopen={() => open({ kind: 'reopen', tournament: shownTournament })} onShare={() => void share(shownTournament.name)} />}
-          {modal?.kind === 'player' && <PlayerForm player={modal.player} submit={dispatch} />}
-          {modal?.kind === 'tournament' && <TournamentForm tournament={modal.tournament} submit={dispatch} />}
+          {!modal && profile && <PlayerProfile player={profile} rules={state.rules} canEdit={canEdit} onEdit={() => open({ kind: 'player', player: profile })} onShare={() => void share(profile.name)} />}
+          {!modal && shownTournament && <TournamentManager onLegacyResults={() => open({ kind: 'results', tournament: shownTournament })} onCreatePlayer={() => open({ kind: 'player', category: shownTournament.category })} tournament={shownTournament} submit={async action => { try { await store.dispatch(action); setError(''); setNotice(savedNotice); return true; } catch (e) { setError(errorMessage(e)); return false; } }} onEdit={() => open({ kind: 'tournament', tournament: shownTournament })} state={state} canEdit={canEdit} onReopen={() => open({ kind: 'reopen', tournament: shownTournament })} onShare={() => void share(shownTournament.name)} />}
+          {modal?.kind === 'player' && <PlayerForm defaultCategory={modal.category} state={state} player={modal.player} submit={dispatch} />}
+          {modal?.kind === 'tournament' && <TournamentForm state={state} tournament={modal.tournament} submit={dispatch} />}
           {modal?.kind === 'results' && <ResultsForm tournament={modal.tournament} state={state} submit={dispatch} />}
           {modal?.kind === 'login' && <LoginForm submit={password => void run(() => store.login(password), 'Sesión iniciada. Ya podés cargar resultados.')} />}
           {modal?.kind === 'reopen' && (

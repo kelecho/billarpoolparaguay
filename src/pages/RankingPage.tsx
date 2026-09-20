@@ -1,21 +1,23 @@
+import CategoryBadge from '../components/CategoryBadge';
 import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Plus, Search } from 'lucide-react';
 import Hero from '../components/Hero';
 import Podium from '../components/Podium';
 import RankingTable from '../components/RankingTable';
-import { DISCIPLINES, dateLabel, localDate, number, standings, type Discipline, type RankedPlayer, type State, type Tournament } from '../domain';
+import { DISCIPLINES, dateLabel, localDate, number, standings, type Discipline, type State, type Tournament } from '../domain';
 import { pageHref } from '../useHashRoute';
 
-type Props = { state: State; ranking: RankedPlayer[]; canEdit: boolean; onAddPlayer: () => void; renderTournament: (t: Tournament) => ReactNode };
+type Props = { state: State; canEdit: boolean; onAddPlayer: () => void; renderTournament: (t: Tournament) => ReactNode };
 
-export default function RankingPage({ state, ranking, canEdit, onAddPlayer, renderTournament }: Props) {
+export default function RankingPage({ state, canEdit, onAddPlayer, renderTournament }: Props) {
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('Todas');
+  const [category, setCategory] = useState(state.rules.categories[0].name);
+  const selectedCategory = category === 'Todas' || state.rules.categories.some(c => c.name === category) ? category : state.rules.categories[0].name;
   const [discipline, setDiscipline] = useState<Discipline | 'General'>('General');
 
-  const table = useMemo(() => discipline === 'General' ? ranking : standings(state, discipline), [state, ranking, discipline]);
+  const table = useMemo(() => standings(state, discipline === 'General' ? undefined : discipline, selectedCategory === 'Todas' ? undefined : selectedCategory), [state, discipline, selectedCategory]);
   const needle = query.toLocaleLowerCase('es');
-  const filtered = table.filter(p => (category === 'Todas' || category === p.category) && `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(needle));
+  const filtered = table.filter(p => `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(needle));
 
   const completed = state.tournaments.filter(t => t.results.length);
   const latest = [...completed].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -43,28 +45,28 @@ export default function RankingPage({ state, ranking, canEdit, onAddPlayer, rend
           {canEdit && <button className="button primary" onClick={onAddPlayer}><Plus size={17} />Agregar jugador</button>}
         </div>
         <div className="ranking-caption">
-          <span>La clasificación de nuestra comunidad.</span>
+          <span>{selectedCategory === 'Todas' ? 'Clasificación general de la comunidad.' : `Ranking de ${selectedCategory} · puestos dentro de la categoría.`}</span>
           <span>{latest ? `Último torneo: ${latest.name} · ${dateLabel(latest.date, true)}` : 'Listos para la primera partida'}</span>
         </div>
-        <Podium players={ranking} />
         <div className="filters">
           <div className="filter-groups">
             <div className="category-tabs discipline-tabs" role="group" aria-label="Ranking por disciplina">
               {(['General', ...DISCIPLINES] as const).map(d => <button key={d} aria-pressed={discipline === d} className={discipline === d ? 'selected' : ''} onClick={() => setDiscipline(d)}>{d}</button>)}
             </div>
             <div className="category-tabs" role="group" aria-label="Filtrar categoría">
-              {['Todas', ...state.rules.categories.map(c => c.name)].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'selected' : ''} onClick={() => setCategory(c)}>{c}</button>)}
+              {['Todas', ...state.rules.categories.map(c => c.name)].map(c => <button key={c} aria-pressed={selectedCategory === c} className={selectedCategory === c ? 'selected' : ''} onClick={() => setCategory(c)}>{c !== 'Todas' && <CategoryBadge category={c} rules={state.rules} iconOnly />}{c}</button>)}
             </div>
           </div>
           <label className="search"><Search size={17} /><input aria-label="Buscar jugadores" placeholder="Buscar jugador o ciudad…" value={query} onChange={e => setQuery(e.target.value)} /></label>
         </div>
+        <Podium players={table} label={selectedCategory === 'Todas' ? 'Podio del ranking general' : `Podio de ${selectedCategory}`} />
         {discipline !== 'General' && <p className="filter-note">Puntos ganados solo en torneos de {discipline}, sin puntos iniciales.</p>}
         <RankingTable
           players={filtered}
           total={table.length}
           leaderPoints={table[0]?.points ?? 1}
           state={state}
-          emptyHint={!state.players.length ? (canEdit ? 'Agregá un jugador para comenzar el ranking.' : 'Pronto vas a ver acá a los primeros jugadores.') : !table.length ? `Todavía no se jugaron torneos de ${discipline}.` : 'Probá otro nombre, ciudad o categoría.'}
+          emptyHint={!state.players.length ? (canEdit ? 'Agregá un jugador para comenzar el ranking.' : 'Pronto vas a ver acá a los primeros jugadores.') : !table.length ? discipline === 'General' ? 'Todavía no hay jugadores en esta categoría.' : `Todavía no se jugaron torneos de ${discipline} en esta categoría.` : 'Probá otro nombre, ciudad o categoría.'}
         />
       </section>
 

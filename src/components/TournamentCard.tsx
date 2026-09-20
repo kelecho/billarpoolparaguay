@@ -12,8 +12,8 @@ export default function TournamentCard({ tournament: t, state, page, canEdit, on
   return (
     <article className="tournament-card">
       <div className="tournament-top">
-        <span className="tag">{t.discipline}</span>
-        <span className={`status ${finished ? 'finished' : ''}`}>{finished ? 'Finalizado' : t.date < localDate() ? 'Sin resultados' : 'Próximo'}</span>
+        <span className="tag">{t.discipline}{t.category && ` · ${t.category}`}</span>
+        <span className={`status ${finished ? 'finished' : ''}`}>{finished ? 'Finalizado' : t.fixture ? 'Fixture armado' : t.category ? 'Inscripciones' : t.date < localDate() ? 'Sin resultados' : 'Próximo'}</span>
       </div>
       <div className="tournament-title">
         <div className="date-stamp"><strong>{t.date.slice(8)}</strong><span>{month(t.date)}</span></div>
@@ -25,10 +25,11 @@ export default function TournamentCard({ tournament: t, state, page, canEdit, on
           <div className="winner"><Trophy size={17} /><span>{winner ?? 'Resultados publicados'}</span><small>{t.results.length} jugadores</small></div>
           <a className="text-button" href={pageHref(page, { torneo: t.id })}>Ver resultados <ChevronRight size={16} /></a>
         </>
-      ) : canEdit && (
+      ) : (
         <div className="card-actions">
-          <button className="text-button" onClick={onEdit}>Editar torneo</button>
-          <button className="text-button" disabled={t.date > localDate()} onClick={onResults}>Cargar resultados <ArrowUpRight size={16} /></button>
+          <a className="text-button" href={pageHref(page, { torneo: t.id })}>{canEdit ? 'Administrar torneo' : 'Ver torneo'} <ChevronRight size={16} /></a>
+          {canEdit && !t.category && <button className="text-button" onClick={onEdit}>Editar torneo</button>}
+          {canEdit && !t.category && <button className="text-button" disabled={t.date > localDate()} onClick={onResults}>Cargar resultados <ArrowUpRight size={16} /></button>}
         </div>
       )}
     </article>

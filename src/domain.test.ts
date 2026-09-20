@@ -16,11 +16,11 @@ describe('Ranking y resultados', () => {
     expect(validateState(createState()).players).toHaveLength(12);
     expect(validateState(createState(false)).players).toHaveLength(0);
   });
-  it('publica puntos, actualiza categoría y calcula el movimiento de posición', () => {
+  it('publica puntos sin cambiar la categoría y calcula el movimiento de posición', () => {
     const original = fixture();
     const next = applyAction(original, { type: 'results.publish', tournamentId: 'cup', placements: [{ playerId: 'ana', place: 1 }, { playerId: 'luis', place: 9 }] });
     const ranking = standings(next);
-    expect(ranking[0]).toMatchObject({ id: 'ana', points: 1250, rank: 1, previousRank: 2, category: 'Segunda', played: 1, wins: 1 });
+    expect(ranking[0]).toMatchObject({ id: 'ana', points: 1250, rank: 1, previousRank: 2, category: 'Tercera', played: 1, wins: 1 });
     expect(ranking[1].points).toBe(1130);
     expect(original.tournaments[0].results).toEqual([]);
   });
@@ -117,5 +117,22 @@ describe('Validación de datos', () => {
     expect(() => validateState(state)).toThrow();
     state.rules.categories[3].min = 0; state.rules.categories[3].name = 'Primera';
     expect(() => validateState(state)).toThrow();
+  });
+});
+
+describe('Fotos de jugadores', () => {
+  it('conserva la foto al guardar, clasificar y restaurar un respaldo', async () => {
+    const { readFileSync } = await import('node:fs');
+    const photo = `data:image/jpeg;base64,${readFileSync(new URL('../tests/fixtures/player.jpg', import.meta.url)).toString('base64')}`;
+    const state = fixture();
+    const next = applyAction(state, { type: 'player.save', player: { ...state.players[0], photo } });
+    expect(validateState(JSON.parse(JSON.stringify(next))).players[0].photo).toBe(photo);
+    expect(standings(next).find(p => p.id === 'ana')?.photo).toBe(photo);
+    const { photo: _removed, ...player } = next.players[0];
+    expect(applyAction(next, { type: 'player.save', player }).players[0].photo).toBeUndefined();
+  });
+  it.each([null, 42, '', 'https://example.com/photo.jpg', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,YmFk', `data:image/jpeg;base64,${'A'.repeat(64 * 1024)}`])('rechaza fotos inválidas o demasiado grandes (caso %#)', photo => {
+    const state = fixture();
+    expect(() => validateState({ ...state, players: [{ ...state.players[0], photo }] })).toThrow(/foto/);
   });
 });

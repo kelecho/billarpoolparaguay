@@ -1,5 +1,12 @@
-const initials = (name: string) => name.split(' ').slice(0, 2).map(n => n[0]).join('');
+import { useState } from 'react';
 
-export default function Avatar({ name, tone = 0 }: { name: string; tone?: number }) {
-  return <span className={`avatar avatar-${tone % 4}`} aria-hidden="true">{initials(name)}</span>;
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(n => n[0]).join('');
+
+export default function Avatar({ name, tone = 0, photo }: { name: string; tone?: number; photo?: string }) {
+  const [failedPhoto, setFailedPhoto] = useState<string>();
+  return <span className={`avatar avatar-${tone % 4}`}>
+    {photo && photo !== failedPhoto
+      ? <img src={photo} alt={`Foto de ${name || 'jugador'}`} onError={() => setFailedPhoto(photo)} />
+      : <span aria-hidden="true">{initials(name) || 'PY'}</span>}
+  </span>;
 }
