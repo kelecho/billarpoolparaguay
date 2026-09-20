@@ -29,10 +29,8 @@ test('crea un jugador y un torneo por categoría, sortea, juega y publica el fix
   }
   await dialog.getByRole('button', { name: 'Realizar sorteo inicial' }).click();
   await expect(dialog.getByRole('region', { name: 'Fixture del torneo' })).toBeVisible();
-  // Con tres inscriptos hay un pase libre: no ocupa una tarjeta, se avisa quién pasa directo.
-  await expect(dialog.getByRole('article')).toHaveCount(2);
-  await expect(dialog.getByText('Pase libre', { exact: true })).toHaveCount(0);
-  await expect(dialog.locator('.fixture-direct')).toContainText('Pasa directo a la ronda 2:');
+  await expect(dialog.getByRole('article')).toHaveCount(3);
+  await expect(dialog.getByText('Pase libre', { exact: true }).first()).toBeVisible();
   const initialOrder = await dialog.locator('.match-player').allTextContents();
   await page.reload();
   await expect(dialog.getByRole('region', { name: 'Fixture del torneo' })).toBeVisible();
@@ -319,9 +317,7 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
   await expect(final.locator('.match-winner .match-beads i.on')).toHaveCount(2);
   await expect(final.locator('.match-loser .match-beads i.on')).toHaveCount(1);
   await dialog.getByRole('tab', { name: /perdedores/i }).click();
-  // Los pases libres de la llave de perdedores no se dibujan: queda solo el partido real.
-  await expect(dialog.getByRole('article', { name: 'Partido P1-1', exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole('article')).toHaveCount(1);
+  await expect(dialog.getByRole('article', { name: 'Partido P1-1', exact: true })).toContainText('Pase libre');
   await expect(dialog).toContainText('4/4 partidos disputados');
   await expect(dialog).toContainText('Ganador del torneo');
 

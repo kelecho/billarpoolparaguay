@@ -68,9 +68,6 @@ export default function FixtureBoard({ tournament, state, canEdit, busy, submit 
   // Se abre en la llave que tiene partidos por jugar; con el torneo definido, en la final.
   const [open, setOpen] = useState(() => (final?.complete ? sections.at(-1) : sections.find(s => s.rounds.some(r => r.matches.some(m => m.ready && !m.complete))) ?? sections[0])?.bracket);
   const shown = sections.find(s => s.bracket === open) ?? sections[0];
-  // Los pases libres son relleno para que el cuadro cierre: no se dibujan. Quien pasa directo aparece en su primer partido real.
-  const rounds = shown?.rounds.map(round => ({ ...round, matches: round.matches.filter(m => !m.bye) })).filter(round => round.matches.length) ?? [];
-  const direct = shown?.bracket !== 'P' && shown?.bracket !== 'F' ? shown?.rounds[0]?.matches.filter(m => m.bye && m.winner).map(m => state.players.find(p => p.id === m.winner)?.name ?? 'Jugador') ?? [] : [];
   const count = (list: ResolvedMatch[]) => `${list.filter(m => m.complete && !m.bye).length}/${list.filter(m => !m.bye).length}`;
   return <>
     {final?.complete && final.winner && <div className="fixture-champion"><Trophy size={26} /><span><small>Ganador del torneo</small><strong>{state.players.find(p => p.id === final.winner)?.name}</strong></span></div>}
@@ -87,9 +84,8 @@ export default function FixtureBoard({ tournament, state, canEdit, busy, submit 
       })}
     </div>}
     {shown && <div id={`${tabs}-panel`} role={sections.length > 1 ? 'tabpanel' : undefined} aria-labelledby={sections.length > 1 ? `${tabs}-${shown.bracket}` : undefined}>
-      {direct.length > 0 && <p className="fixture-direct"><strong>{direct.length === 1 ? 'Pasa directo' : 'Pasan directo'} a la ronda 2:</strong> {direct.join(' · ')}</p>}
       <div className={`fixture-board fixture-board-${shown.bracket ?? 'S'}`} role="region" aria-label={shown.title ?? 'Fixture del torneo'} tabIndex={0}>
-        {rounds.map((round, i) => <section className="fixture-round" key={i}><h4>{round.label}<span>{count(round.matches)}</span></h4><div className="fixture-round-matches">{round.matches.map(m => <MatchCard key={`${m.id}-${m.playerA}-${m.playerB}`} match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={m.id === final?.id} submit={submit} />)}</div></section>)}
+        {shown.rounds.map((round, i) => <section className="fixture-round" key={i}><h4>{round.label}<span>{count(round.matches)}</span></h4><div className="fixture-round-matches">{round.matches.map(m => <MatchCard key={`${m.id}-${m.playerA}-${m.playerB}`} match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={m.id === final?.id} submit={submit} />)}</div></section>)}
       </div>
     </div>}
   </>;
