@@ -9,9 +9,9 @@ import TournamentRegistration from './TournamentRegistration';
 import TournamentResults from './TournamentResults';
 import Field from './Field';
 
-type Props = { tournament: Tournament; state: State; canEdit: boolean; submit: (action: Action) => Promise<boolean>; onLegacyResults: () => void; onCreatePlayer: () => void; onEdit: () => void; onReopen: () => void; onShare: () => void };
+type Props = { tournament: Tournament; state: State; canEdit: boolean; /** Se está jugando y la página se actualiza sola. */ live?: boolean; submit: (action: Action) => Promise<boolean>; onLegacyResults: () => void; onCreatePlayer: () => void; onEdit: () => void; onReopen: () => void; onShare: () => void };
 
-export default function TournamentManager({ tournament: t, state, canEdit, submit, onLegacyResults, onCreatePlayer, onEdit, onReopen, onShare }: Props) {
+export default function TournamentManager({ tournament: t, state, canEdit, live = false, submit, onLegacyResults, onCreatePlayer, onEdit, onReopen, onShare }: Props) {
   const [busy, setBusy] = useState(false);
   const [method, setMethod] = useState<'random' | 'ranking' | 'manual'>('random');
   const registered = t.registered ?? [];
@@ -49,7 +49,7 @@ export default function TournamentManager({ tournament: t, state, canEdit, submi
       <button className="button primary" disabled={busy || registered.length < 2} onClick={() => generate()}><Shuffle size={17} />{method === 'random' ? 'Realizar sorteo inicial' : 'Generar emparejamientos'}</button>
     </section>}
     {t.fixture && <section className="form-stack">
-      <div className="fixture-title"><div><h3>Fixture</h3><p className="muted small">{t.fixture.draw === 'random' ? 'Sorteo aleatorio' : t.fixture.draw === 'ranking' ? 'Cabezas de serie por ranking' : 'Armado manual'} · {matches.filter(m => m.complete && !m.bye).length}/{registered.length - 1} partidos disputados</p></div>
+      <div className="fixture-title"><div><h3>Fixture{live && <span className="live-tag"><span aria-hidden="true" />En vivo</span>}</h3><p className="muted small">{t.fixture.draw === 'random' ? 'Sorteo aleatorio' : t.fixture.draw === 'ranking' ? 'Cabezas de serie por ranking' : 'Armado manual'} · {matches.filter(m => m.complete && !m.bye).length}/{registered.length - 1} partidos disputados{live && ' · Los marcadores se actualizan solos'}</p></div>
         {canEdit && !finished && !started && <div className="modal-actions"><ConfirmButton disabled={busy} confirmLabel="Confirmar nuevo sorteo" onConfirm={() => generate('random')}>Volver a sortear</ConfirmButton><ConfirmButton disabled={busy} confirmLabel="Confirmar: quitar fixture" onConfirm={() => void save({ type: 'fixture.reset', tournamentId: t.id })}>Quitar fixture y editar inscripciones</ConfirmButton></div>}
       </div>
       {canEdit && !finished && !started && <p className="muted small">Un nuevo sorteo reemplaza los cruces y la programación. Después del primer resultado, el sorteo queda cerrado.</p>}

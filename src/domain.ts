@@ -56,6 +56,11 @@ export function localDate(offset = 0) {
 /** Fecha de hoy en una zona horaria dada; el servidor no comparte la hora local de los jugadores. */
 export const dateIn = (timeZone: string, now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
 
+/** Sin publicar y con fecha de hoy o de ayer: hay inscripciones, sorteo o marcadores por aparecer, y vale la pena actualizar seguido. */
+export const isMatchDay = (t: Tournament, today = localDate(), since = localDate(-1)) => !t.results.length && t.date <= today && t.date >= since;
+/** Además ya tiene fixture: se están jugando los partidos. */
+export const isLive = (t: Tournament, today?: string, since?: string) => Boolean(t.fixture) && isMatchDay(t, today, since);
+
 const byDate = (a: Tournament, b: Tournament) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id);
 
 /** Los registros antiguos conservan su categoría al migrar; los puntos ya no causan ascensos. */

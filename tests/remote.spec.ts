@@ -169,3 +169,60 @@ test('el superadministrador crea una supervisora, que entra con permisos limitad
   await expect(susana.getByRole('alert')).toContainText('El correo o la contraseña no son correctos');
   await context.close();
 });
+
+test('el visitante ve el marcador de un torneo en juego sin recargar la página', async ({ page, browser }) => {
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const date = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+  await page.goto('/');
+  await signIn(page, ADMIN);
+  await page.getByRole('navigation').getByRole('link', { name: 'Torneos', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear torneo' }).click();
+  await page.getByLabel('Nombre del torneo').fill('Copa en vivo');
+  await page.getByLabel('Fecha', { exact: true }).fill(date);
+  await page.getByLabel('Categoría del torneo').selectOption('Principiante');
+  await page.getByLabel('Partidas para ganar').fill('2');
+  await page.getByLabel('Sede y ciudad').fill('Club en vivo');
+  await page.getByRole('button', { name: 'Guardar torneo' }).click();
+  await page.getByRole('article').filter({ hasText: 'Copa en vivo' }).getByRole('link', { name: 'Administrar torneo' }).click();
+  const dialog = page.getByRole('dialog');
+  for (const name of ['Remota Prueba', 'Rival remoto']) {
+    await dialog.getByRole('button', { name: `Inscribir a ${name}`, exact: true }).click();
+    await expect(dialog.getByRole('button', { name: `Quitar inscripción de ${name}`, exact: true })).toBeVisible();
+  }
+
+  // El visitante abre el torneo antes del sorteo y no vuelve a tocar la página.
+  const context = await browser.newContext();
+  const visitor = await context.newPage();
+  await visitor.goto(page.url());
+  await expect(visitor.getByRole('dialog')).toContainText('El fixture estará disponible después del sorteo inicial.');
+
+  await dialog.getByRole('button', { name: 'Realizar sorteo inicial' }).click();
+  await expect(visitor.getByRole('dialog').getByRole('article', { name: 'Partido 1-1', exact: true })).toBeVisible();
+  await expect(visitor.getByRole('dialog')).toContainText('En vivo');
+  await expect(visitor.getByRole('dialog')).toContainText('0/1 partidos disputados · Los marcadores se actualizan solos');
+
+  await dialog.getByRole('button', { name: 'Cargar resultado', exact: true }).click();
+  await dialog.getByRole('spinbutton').nth(0).fill('2');
+  await dialog.getByRole('spinbutton').nth(1).fill('1');
+  await dialog.getByRole('button', { name: 'Guardar resultado' }).click();
+  await expect(visitor.getByRole('dialog')).toContainText('1/1 partidos disputados');
+
+  // Con un formulario abierto la página no se actualiza por debajo: guardar sobre datos viejos sigue dando conflicto.
+  await dialog.getByRole('button', { name: 'Editar torneo' }).click();
+  await page.getByLabel('Nombre del torneo').fill('Copa en vivo (editada)');
+  const { version, state } = await (await page.request.get('/api/state')).json();
+  const tournamentId = state.tournaments.find((t: { name: string }) => t.name === 'Copa en vivo').id;
+  const other = await page.request.post('/api/actions', { data: { action: { type: 'match.schedule', tournamentId, matchId: '1-1', table: 'Mesa 9', time: '' }, version } });
+  expect(other.status()).toBe(200);
+  await expect(visitor.getByRole('dialog')).toContainText('Mesa 9');
+  await page.waitForTimeout(2500);
+  await page.getByRole('button', { name: 'Guardar torneo' }).click();
+  await expect(page.getByRole('alert')).toContainText('Otra persona guardó cambios mientras editabas');
+  await page.getByRole('button', { name: 'Guardar torneo' }).click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Copa en vivo (editada)' })).toBeVisible();
+
+  await page.getByRole('dialog').getByRole('button', { name: 'Publicar resultados del torneo' }).click();
+  await expect(visitor.getByRole('heading', { name: 'Clasificación final' })).toBeVisible();
+  await expect(visitor.getByRole('dialog')).not.toContainText('En vivo');
+  await context.close();
+});

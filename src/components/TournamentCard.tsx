@@ -1,5 +1,5 @@
 import { ArrowUpRight, ChevronRight, MapPin, Trophy } from 'lucide-react';
-import { dateLabel, localDate, type State, type Tournament } from '../domain';
+import { dateLabel, isLive, localDate, type State, type Tournament } from '../domain';
 import { pageHref, type Page } from '../useHashRoute';
 
 type Props = { tournament: Tournament; state: State; page: Page; canEdit: boolean; onEdit: () => void; onResults: () => void };
@@ -13,7 +13,7 @@ export default function TournamentCard({ tournament: t, state, page, canEdit, on
     <article className="tournament-card">
       <div className="tournament-top">
         <span className="tag">{t.discipline}{t.category && ` · ${t.category}`}</span>
-        <span className={`status ${finished ? 'finished' : ''}`}>{finished ? 'Finalizado' : t.fixture ? 'Fixture armado' : t.category ? 'Inscripciones' : t.date < localDate() ? 'Sin resultados' : 'Próximo'}</span>
+        <span className={`status ${finished ? 'finished' : ''}`}>{finished ? 'Finalizado' : isLive(t) ? 'En juego' : t.fixture ? 'Fixture armado' : t.category ? 'Inscripciones' : t.date < localDate() ? 'Sin resultados' : 'Próximo'}</span>
       </div>
       <div className="tournament-title">
         <div className="date-stamp"><strong>{t.date.slice(8)}</strong><span>{month(t.date)}</span></div>

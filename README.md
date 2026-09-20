@@ -45,6 +45,7 @@ npm run preview
 | Quién edita | Cualquiera que abra la página | Solo las cuentas de la organización, según su rol |
 | Público | Ve datos de ejemplo propios | Ve el ranking real, solo lectura |
 | Sin conexión | Funciona completo | Muestra la última copia descargada, sin edición |
+| Actualización | — | Sola: cada 30 s el día de un torneo, cada 5 min el resto del tiempo |
 
 ### Modo local
 
@@ -66,6 +67,7 @@ Los datos se guardan bajo `pool-paraguay-state-v1`, en este navegador y origen. 
 - Jugadores, torneos, inscripciones, partidos y resultados tienen cada uno su tabla en D1 (`migrations/0002_tables.sql`, que también reparte el documento de la versión anterior). `worker/store.ts` arma el registro al leer y, al guardar, escribe solo las filas que cambiaron. Cada sentencia lleva sus filas en un parámetro JSON (`json_each`), de modo que un respaldo grande se restaura con un número fijo de consultas. Datos y auditoría se guardan en una transacción que respeta la versión del administrador.
 - Las fotos viven en el bucket R2 `PHOTOS`. `POST /api/photos` (administrador) valida el JPEG y lo guarda con el SHA-256 de su contenido como nombre; la ficha conserva solo la referencia `/api/photos/<hash>.jpg`, que se sirve con caché permanente. El navegador sube cada foto en su propia petición antes de guardar la ficha o restaurar un respaldo; al exportar, vuelve a incluir las fotos en el archivo. Las fotos que quedan sin ficha se borran de R2.
 - `GET /api/state?tag=<etiqueta>` responde sin datos cuando el visitante ya tiene la versión vigente: recargar o volver a la pestaña cuesta una fila leída y unos bytes.
+- La página usa esa misma consulta para actualizarse sola mientras la pestaña está visible: cada 30 segundos si hay un torneo sin publicar con fecha de hoy o de ayer (`isMatchDay`), para ver el sorteo y los marcadores sin recargar, y cada 5 minutos el resto del tiempo. El fixture muestra «En vivo» mientras se juega. Con un formulario abierto no se actualiza por debajo, así que guardar sobre datos viejos sigue dando conflicto. `VITE_LIVE_POLL_MS` cambia el intervalo al compilar. Como referencia para el plan gratuito de Workers (100.000 pedidos diarios): 100 personas mirando durante 5 horas son unos 60.000 pedidos.
 
 #### Cuentas y roles
 
@@ -160,4 +162,4 @@ Si Playwright no puede descargar su navegador, `PLAYWRIGHT_CHANNEL=chrome` usa e
 
 ## Próxima etapa
 
-Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. El público ve los cambios al recargar o volver a la pestaña; seguir partidos en directo requiere actualizaciones automáticas. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como doble eliminación o grupos.
+Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. Los marcadores llegan por consulta periódica; si hiciera falta que aparezcan al instante, el paso siguiente son WebSockets con Durable Objects. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como doble eliminación o grupos.

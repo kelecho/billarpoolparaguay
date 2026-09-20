@@ -377,6 +377,10 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 .account-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; font-size: 13px; }
 .account-row small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .account-row .text-button { grid-column: 1 / -1; justify-self: start; }
+.live-tag { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; vertical-align: middle; font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--red-ink); }
+.live-tag > span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .live-tag > span { animation: none; } }
 .check { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; }
 .check input { width: 18px; height: 18px; accent-color: var(--ink); }
 .footer-local .text-button { font-size: 11px; color: var(--muted); font-weight: 600; }

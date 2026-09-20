@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { applyAction, createState, type Action, type State } from './domain';
+import { applyAction, createState, isMatchDay, type Action, type State } from './domain';
 import { loadState, saveState, STORAGE_KEY } from './storage';
 import * as remote from './remote';
 import type { User } from './roles';
@@ -31,7 +31,12 @@ export type Store = {
   exportContent: () => Promise<string>;
 };
 
-export function useStore(): Store {
+/** El día del torneo el público ve el sorteo y los marcadores sin recargar; el resto del tiempo alcanza con una consulta espaciada. */
+const LIVE_POLL_MS = Number(import.meta.env.VITE_LIVE_POLL_MS) || 30_000;
+const IDLE_POLL_MS = 5 * 60_000;
+
+/** `paused`: hay un formulario abierto. No se actualiza por debajo, para que guardar sobre datos viejos siga dando conflicto. */
+export function useStore(paused = false): Store {
   const [loaded] = useState(() => remote.REMOTE ? null : loadState());
   const [cached] = useState(() => remote.REMOTE ? remote.cachedSnapshot() : null);
   const [state, setState] = useState<State>(() => loaded?.state ?? cached?.state ?? createState(false));
@@ -72,6 +77,13 @@ export function useStore(): Store {
     window.addEventListener('online', onVisible);
     return () => { document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('online', onVisible); };
   }, [refresh]);
+
+  const live = state.tournaments.some(t => isMatchDay(t));
+  useEffect(() => {
+    if (!remote.REMOTE || paused) return;
+    const timer = setInterval(() => { if (document.visibilityState === 'visible' && navigator.onLine) void refresh(); }, live ? LIVE_POLL_MS : IDLE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [refresh, live, paused]);
 
   async function write(send: () => Promise<remote.Snapshot>) {
     try {

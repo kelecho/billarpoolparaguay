@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, createState, dateIn, localDate, pointsHistory, standings, validateState, type State } from './domain';
+import { applyAction, createState, dateIn, isLive, isMatchDay, localDate, pointsHistory, standings, validateState, type State, type Tournament } from './domain';
 
 function fixture(): State {
   const state = createState(false);
@@ -134,5 +134,24 @@ describe('Fotos de jugadores', () => {
   it.each([null, 42, '', 'https://example.com/photo.jpg', 'data:image/svg+xml;base64,PHN2Zy8+', 'data:image/jpeg;base64,YmFk', `data:image/jpeg;base64,${'A'.repeat(64 * 1024)}`])('rechaza fotos inválidas o demasiado grandes (caso %#)', photo => {
     const state = fixture();
     expect(() => validateState({ ...state, players: [{ ...state.players[0], photo }] })).toThrow(/foto/);
+  });
+});
+
+describe('torneos en juego', () => {
+  const base: Tournament = { id: 't', name: 'Copa', date: '2026-03-10', venue: 'Club', discipline: 'Bola 8', results: [], fixture: { seeds: ['a', 'b'], matches: [{ id: '1-1', round: 0, index: 0 }] } };
+  const live = (t: Tournament) => isLive(t, '2026-03-10', '2026-03-09');
+
+  it('cuenta como en juego un torneo con fixture, sin publicar, de hoy o de ayer', () => {
+    expect(live(base)).toBe(true);
+    expect(live({ ...base, date: '2026-03-09' })).toBe(true);
+  });
+
+  it('no actualiza seguido por torneos futuros, viejos, sin fixture o ya publicados', () => {
+    expect(live({ ...base, date: '2026-03-11' })).toBe(false);
+    expect(live({ ...base, date: '2026-03-08' })).toBe(false);
+    expect(live({ ...base, fixture: undefined })).toBe(false);
+    expect(isMatchDay({ ...base, fixture: undefined }, '2026-03-10', '2026-03-09')).toBe(true);
+    expect(isMatchDay({ ...base, date: '2026-03-08' }, '2026-03-10', '2026-03-09')).toBe(false);
+    expect(live({ ...base, results: [{ playerId: 'a', place: 1, points: 300 }] })).toBe(false);
   });
 });

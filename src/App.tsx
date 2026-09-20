@@ -12,7 +12,7 @@ import ResultsForm from './components/ResultsForm';
 import TournamentCard from './components/TournamentCard';
 import TournamentForm from './components/TournamentForm';
 import TournamentManager from './components/TournamentManager';
-import { dateLabel, localDate, standings, type Action, type Player, type State, type Tournament } from './domain';
+import { dateLabel, isLive, localDate, standings, type Action, type Player, type State, type Tournament } from './domain';
 import PlayersPage from './pages/PlayersPage';
 import RankingPage from './pages/RankingPage';
 import SettingsPage from './pages/SettingsPage';
@@ -38,7 +38,7 @@ const errorMessage = (error: unknown) => error instanceof Error ? error.message 
 
 export default function App() {
   const [modal, setModal] = useState<Modal>(null);
-  const store = useStore();
+  const store = useStore(Boolean(modal));
   const { state, canEdit } = store;
   const { route, navigate } = useHashRoute();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -165,7 +165,7 @@ export default function App() {
           </>}
           {!mustChangePassword && <>
           {!modal && profile && <PlayerProfile player={profile} rules={state.rules} canEdit={canEdit} onEdit={() => open({ kind: 'player', player: profile })} onShare={() => void share(profile.name)} />}
-          {!modal && shownTournament && <TournamentManager onLegacyResults={() => open({ kind: 'results', tournament: shownTournament })} onCreatePlayer={() => open({ kind: 'player', category: shownTournament.category })} tournament={shownTournament} submit={async action => { try { await store.dispatch(action); setError(''); setNotice(savedNotice); return true; } catch (e) { setError(errorMessage(e)); return false; } }} onEdit={() => open({ kind: 'tournament', tournament: shownTournament })} state={state} canEdit={canEdit} onReopen={() => open({ kind: 'reopen', tournament: shownTournament })} onShare={() => void share(shownTournament.name)} />}
+          {!modal && shownTournament && <TournamentManager live={store.remote && isLive(shownTournament)} onLegacyResults={() => open({ kind: 'results', tournament: shownTournament })} onCreatePlayer={() => open({ kind: 'player', category: shownTournament.category })} tournament={shownTournament} submit={async action => { try { await store.dispatch(action); setError(''); setNotice(savedNotice); return true; } catch (e) { setError(errorMessage(e)); return false; } }} onEdit={() => open({ kind: 'tournament', tournament: shownTournament })} state={state} canEdit={canEdit} onReopen={() => open({ kind: 'reopen', tournament: shownTournament })} onShare={() => void share(shownTournament.name)} />}
           {modal?.kind === 'player' && <PlayerForm defaultCategory={modal.category} state={state} player={modal.player} submit={dispatch} />}
           {modal?.kind === 'tournament' && <TournamentForm state={state} tournament={modal.tournament} submit={dispatch} />}
           {modal?.kind === 'results' && <ResultsForm tournament={modal.tournament} state={state} submit={dispatch} />}
