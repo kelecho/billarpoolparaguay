@@ -12,6 +12,8 @@ export type Tournament = { id: string; name: string; date: string; venue: string
   format?: Format; qualifiers?: number;
   /** Liga todos contra todos: una vuelta por defecto; 2 para ida y vuelta. */
   leagueRounds?: 1 | 2;
+  /** Torneo abierto: sin filtro de categoría, se puede inscribir a cualquier jugador. */
+  open?: true;
   /** Los que pierden las semifinales juegan por el tercer puesto en vez de compartirlo. */
   thirdPlace?: boolean;
   /** Doble eliminación con gran final: si pierde el invicto, se juega una revancha. */
@@ -71,6 +73,9 @@ export const dateIn = (timeZone: string, now = new Date()) => new Intl.DateTimeF
 export const isMatchDay = (t: Tournament, today = localDate(), since = localDate(-1)) => !t.results.length && t.date <= today && (t.format === 'league' || t.date >= since);
 /** Además ya tiene fixture: se están jugando los partidos. */
 export const isLive = (t: Tournament, today?: string, since?: string) => Boolean(t.fixture) && isMatchDay(t, today, since);
+
+/** Con categoría o abierto: el torneo lleva inscriptos, fixture y publica desde el cuadro. */
+export const hasRoster = (t: Tournament) => Boolean(t.category || t.open);
 
 const byDate = (a: Tournament, b: Tournament) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id);
 
@@ -154,10 +159,11 @@ export function validateState(input: unknown): State {
     if (t.finalRematch && (t.format !== 'double' || (t.qualifiers ?? 2) !== 2)) return fail();
     if (t.thirdPlace && t.format === 'double' && (t.qualifiers ?? 2) === 2) return fail();
     if (t.format === 'league' && t.thirdPlace) return fail();
+    if (t.open !== undefined && (t.open !== true || t.category !== undefined)) return fail();
     if (t.registered !== undefined && (!Array.isArray(t.registered) || t.registered.length > entrantLimit(t.format) || new Set(t.registered).size !== t.registered.length || t.registered.some(id => !ids.has(id)))) return fail();
-    if ((t.fixture || t.registered?.length) && !t.category) return fail();
-    if (t.registered?.some(id => playerCategory(value.players.find(p => p.id === id)!, value) !== t.category)) return fail();
-    if (t.category && t.results.some(r => !t.registered?.includes(r.playerId))) return fail();
+    if ((t.fixture || t.registered?.length) && !hasRoster(t)) return fail();
+    if (t.category && t.registered?.some(id => playerCategory(value.players.find(p => p.id === id)!, value) !== t.category)) return fail();
+    if (hasRoster(t) && t.results.some(r => !t.registered?.includes(r.playerId))) return fail();
     if (t.fixture !== undefined && (!t.fixture || typeof t.fixture !== 'object')) return fail();
     validateFixture(t);
   }
@@ -189,15 +195,18 @@ export function applyAction(state: State, action: Action, today = localDate()): 
     case 'tournament.save': {
       const current = state.tournaments.find(t => t.id === action.tournament.id);
       if (current?.results.length) throw new Error('Reabrí el torneo antes de editarlo.');
-      if (!current && !action.tournament.category) throw new Error('Elegí la categoría del torneo.');
-      if (current?.registered?.length && action.tournament.category !== current.category) throw new Error('Quitá los inscriptos antes de cambiar la categoría del torneo.');
+      const open = Boolean(action.tournament.open);
+      if (!current && !action.tournament.category && !open) throw new Error('Elegí la categoría del torneo.');
+      if (current?.registered?.length && (action.tournament.category !== current.category || open !== Boolean(current.open))) throw new Error('Quitá los inscriptos antes de cambiar la categoría del torneo.');
       const double = action.tournament.format === 'double';
       const league = action.tournament.format === 'league';
       const grandFinal = double && (action.tournament.qualifiers ?? 2) === 2;
       // Cada opción vale solo donde tiene sentido: revancha con gran final, tercer puesto donde hay semifinales.
+      // Abierto y categoría se excluyen: uno filtra las inscripciones y el otro las deja libres.
+      const scope = open ? { open: true as const, category: undefined } : { open: undefined, category: action.tournament.category };
       const shape = { format: league ? 'league' as const : double ? 'double' as const : undefined, leagueRounds: league ? action.tournament.leagueRounds ?? 1 : undefined, qualifiers: double ? action.tournament.qualifiers ?? 2 : undefined, thirdPlace: action.tournament.thirdPlace && !grandFinal && !league ? true as const : undefined, finalRematch: action.tournament.finalRematch && grandFinal ? true as const : undefined };
       if (current?.fixture && ((action.tournament.raceTo ?? 5) !== (current.raceTo ?? 5) || action.tournament.discipline !== current.discipline || action.tournament.date !== current.date || shape.format !== current.format || (shape.leagueRounds ?? 1) !== (current.leagueRounds ?? 1) || shape.qualifiers !== current.qualifiers || shape.thirdPlace !== current.thirdPlace || shape.finalRematch !== current.finalRematch)) throw new Error('No se puede cambiar la fecha, disciplina, formato o partidas para ganar con el fixture armado.');
-      const tournament = { ...action.tournament, ...shape, registered: current?.registered ?? [], fixture: current?.fixture, results: current?.results || [] };
+      const tournament = { ...action.tournament, ...scope, ...shape, registered: current?.registered ?? [], fixture: current?.fixture, results: current?.results || [] };
       next = { ...state, tournaments: current ? state.tournaments.map(t => t.id === tournament.id ? tournament : t) : [...state.tournaments, tournament] };
       break;
     }
@@ -218,7 +227,7 @@ export function applyAction(state: State, action: Action, today = localDate()): 
     case 'results.publish': {
       const tournament = state.tournaments.find(t => t.id === action.tournamentId);
       if (!tournament || tournament.results.length) throw new Error('El torneo ya tiene resultados o no existe.');
-      if (tournament.category || tournament.fixture) throw new Error('Publicá los resultados desde el fixture del torneo.');
+      if (hasRoster(tournament) || tournament.fixture) throw new Error('Publicá los resultados desde el fixture del torneo.');
       if (!Array.isArray(action.placements) || !action.placements.length) throw new Error('Agregá al menos un jugador.');
       if (tournament.date > today) throw new Error('Podrás publicar resultados a partir de la fecha del torneo.');
       const results = action.placements.map(r => ({ playerId: r.playerId, place: r.place, points: state.rules.points[r.place - 1] ?? state.rules.participation }));

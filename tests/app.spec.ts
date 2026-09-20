@@ -82,6 +82,40 @@ test('crea un jugador y un torneo por categoría, sortea, juega y publica el fix
   await expect(page.getByRole('row').filter({ hasText: 'María Prueba' }).locator('.score')).toContainText('500');
 });
 
+test('abre la ficha del jugador tocando cualquier parte de su fila', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('row').filter({ hasText: 'Diego Benítez' }).getByRole('cell').last().click();
+  await expect(page.getByRole('dialog')).toContainText('Diego Benítez');
+  await expect(page).toHaveURL(/jugador=p1/);
+});
+
+test('crea un torneo abierto e inscribe jugadores de distintas categorías', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation').getByRole('link', { name: 'Torneos', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear torneo' }).click();
+  await page.getByLabel('Nombre del torneo').fill('Abierto de prueba');
+  await page.getByLabel('Fecha', { exact: true }).fill('2025-02-20');
+  await page.getByLabel('Categoría del torneo').selectOption({ label: 'Abierto · todas las categorías' });
+  await page.getByLabel('Partidas para ganar').fill('3');
+  await page.getByLabel('Sede y ciudad').fill('Club de prueba');
+  await page.getByRole('button', { name: 'Guardar torneo' }).click();
+  const card = page.getByRole('article').filter({ hasText: 'Abierto de prueba' });
+  await expect(card).toContainText('Abierto');
+  await card.getByRole('link', { name: 'Administrar torneo' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('cualquier categoría');
+  // Diego es de Primera y Pablo de Principiante: en un torneo abierto conviven en la misma lista.
+  for (const name of ['Diego Benítez', 'Pablo Giménez']) {
+    await dialog.getByRole('button', { name: `Inscribir a ${name}`, exact: true }).click();
+    await expect(dialog.getByRole('button', { name: `Quitar inscripción de ${name}`, exact: true })).toBeVisible();
+  }
+  await dialog.getByRole('button', { name: 'Realizar sorteo inicial' }).click();
+  await expect(dialog.getByRole('region', { name: 'Fixture del torneo' })).toBeVisible();
+  await page.reload();
+  const fixture = dialog.getByRole('region', { name: 'Fixture del torneo' });
+  for (const name of ['Diego Benítez', 'Pablo Giménez']) await expect(fixture).toContainText(name);
+});
+
 test('filtra, muestra perfiles y no desborda la pantalla', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);

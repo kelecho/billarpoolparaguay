@@ -28,7 +28,8 @@ export default function RankingTable({ players, total, leaderPoints, state, empt
         </thead>
         <tbody>
           {players.map(p => (
-            <tr key={p.id} className={p.rank === 1 ? 'leader-row' : undefined}>
+            // Toda la fila lleva a la ficha; el enlace del nombre sigue siendo el camino con teclado.
+            <tr key={p.id} className={`player-row${p.rank === 1 ? ' leader-row' : ''}`} onClick={e => { if (!(e.target as HTMLElement).closest('a')) window.location.hash = pageHref('Ranking', { jugador: p.id }); }}>
               <td><span className={`rank rank-${p.rank}`}>{String(p.rank).padStart(2, '0')}</span></td>
               <td>
                 <a className="player-link" href={pageHref('Ranking', { jugador: p.id })}>

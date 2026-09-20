@@ -10,7 +10,7 @@ export default function TournamentRegistration({ tournament: t, state, busy, sub
   const [query, setQuery] = useState('');
   const registered = t.registered ?? [];
   const limit = entrantLimit(t.format);
-  const eligible = state.players.filter(p => p.category === t.category && !registered.includes(p.id) && `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'))).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const eligible = state.players.filter(p => (!t.category || p.category === t.category) && !registered.includes(p.id) && `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'))).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   const save = (playerIds: string[]) => void submit({ type: 'registration.save', tournamentId: t.id, playerIds });
   const move = (index: number, delta: number) => {
     const order = [...registered];
@@ -19,7 +19,7 @@ export default function TournamentRegistration({ tournament: t, state, busy, sub
   };
   return (
     <section className="registration-panel">
-      <div><h3>Inscripciones · {registered.length}/{limit}</h3><p className="muted small">Solo jugadores de {t.category}. Podés elegir jugadores existentes o crear su ficha y luego inscribirlos.</p></div>
+      <div><h3>Inscripciones · {registered.length}/{limit}</h3><p className="muted small">{t.category ? `Solo jugadores de ${t.category}.` : 'Torneo abierto: podés inscribir jugadores de cualquier categoría.'} Podés elegir jugadores existentes o crear su ficha y luego inscribirlos.</p></div>
       <div className="registration-columns">
         <div>
           <div className="fixture-title"><h4>Jugadores disponibles</h4><button className="text-button" disabled={busy} onClick={onCreatePlayer}><Plus size={15} />Crear jugador</button></div>

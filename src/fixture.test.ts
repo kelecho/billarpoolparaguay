@@ -32,6 +32,22 @@ describe('Inscripciones y sorteo inicial', () => {
     expect(() => applyAction(state, { type: 'player.save', player: { ...state.players[0], category: 'Primera' } })).toThrow(/traspaso/);
     expect(() => applyAction(state, { type: 'tournament.save', tournament: { ...state.tournaments[0], category: 'Primera' } })).toThrow(/inscriptos/);
   });
+  it('en un torneo abierto inscribe jugadores de cualquier categoría', () => {
+    let state = setup();
+    state = applyAction(state, { type: 'tournament.save', tournament: { id: 'libre', name: 'Abierto de Asunción', date: localDate(-1), venue: 'Club local', discipline: 'Bola 9', open: true, raceTo: 3, results: [] } });
+    const open = () => state.tournaments.find(t => t.id === 'libre')!;
+    expect(open()).toMatchObject({ open: true });
+    expect(open().category).toBeUndefined();
+    state = applyAction(state, { type: 'registration.save', tournamentId: 'libre', playerIds: ['p0', 'other'] });
+    expect(open().registered).toEqual(['p0', 'other']);
+    // Sin inscriptos todavía puede pasar a ser un torneo de una categoría; con inscriptos, no.
+    expect(() => applyAction(state, { type: 'tournament.save', tournament: { ...open(), open: undefined, category: 'Tercera' } })).toThrow(/inscriptos/);
+    state = applyAction(state, { type: 'fixture.generate', tournamentId: 'libre', playerIds: ['p0', 'other'], draw: 'ranking' });
+    state = applyAction(state, { type: 'match.score', tournamentId: 'libre', matchId: resolveFixture(open()).find(m => m.ready)!.id, scoreA: 3, scoreB: 1 });
+    state = applyAction(state, { type: 'fixture.publish', tournamentId: 'libre' });
+    expect(open().results).toHaveLength(2);
+    expect(standings(state).find(p => p.id === 'p0')).toMatchObject({ points: 300 });
+  });
   it('requiere entre 2 y 128 participantes y todos los inscriptos en el sorteo', () => {
     expect(() => buildFixture(['a'])).toThrow();
     expect(() => buildFixture(Array.from({ length: 129 }, (_, i) => String(i)))).toThrow();

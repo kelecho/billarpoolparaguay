@@ -235,6 +235,7 @@ th:last-child, td:last-child { width: 63px; text-align: center; padding-left: 10
 tr:last-child td { border-bottom: 0; }
 tbody tr { transition: background .15s; }
 tbody tr:hover { background: var(--row-hover); }
+.player-row { cursor: pointer; }
 .leader-row { background: var(--leader); }
 .leader-row td:first-child { box-shadow: inset 3px 0 var(--red); }
 .rank { font-family: var(--display); font-size: 30px; color: #7c8c9e; }

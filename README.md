@@ -26,12 +26,14 @@ npm run preview
 ## Funcionalidades
 
 - Ranking por categoría y disciplina (Bola 8, 9 y 10), con puestos desde 1, podio, búsqueda y movimiento respecto del último torneo. También se puede consultar el general.
+- En el ranking, toda la fila lleva a la ficha del jugador; el nombre sigue siendo un enlace para quien navega con teclado.
 - Directorio de jugadores con filtro por ciudad. Perfil con posición, victorias, podios, evolución de puntos e historial.
 - Insignias de categoría con escudos tricolores: Primera, Segunda, Tercera y Principiante. Se actualizan con la categoría del jugador y también aparecen en los filtros y el ranking.
 - Foto opcional desde «Editar jugador»: cargar, reemplazar o quitar JPG, PNG o WebP de hasta 8 MB y 24 megapíxeles. Se recorta al centro y se guarda como JPEG de hasta 384 × 384 px; los respaldos incluyen las fotos.
 - Enlaces compartibles: cada página, perfil y torneo tiene su dirección (`#/torneos?torneo=…`, `#/?jugador=…`) y botón de compartir.
 - Creación, edición y eliminación de jugadores y torneos por categoría. Las inscripciones y los partidos disputados se protegen antes de permitir una baja.
-- Inscripciones de 2 a 128 jugadores de la categoría del torneo, sorteo inicial aleatorio, cabezas de serie por ranking u orden manual, pases libres y fixture de eliminación directa.
+- Torneo **abierto**: en lugar de una categoría se elige «Abierto · todas las categorías» y se inscribe a cualquier jugador, sin filtro. Los puntos suman al ranking general como en cualquier torneo. Con inscriptos ya cargados no se cambia entre abierto y por categoría. En modo compartido lo guarda `migrations/0009_open_tournament.sql`, que se aplica con las demás al desplegar.
+- Inscripciones de 2 a 128 jugadores de la categoría del torneo —o de cualquiera si es abierto—, sorteo inicial aleatorio, cabezas de serie por ranking u orden manual, pases libres y fixture de eliminación directa.
 - Mesas y horarios por partido, marcadores al número de partidas definido, avance automático del ganador y publicación de la clasificación al completar la final. Los eliminados en la misma ronda comparten puesto y puntos.
 - Publicación de resultados desde la fecha del torneo. Los torneos históricos sin categoría conservan la carga manual de resultados.
 - Reapertura de torneos para corregir resultados. Retira todos los puntos de ese torneo hasta volver a publicarlos.
@@ -132,8 +134,8 @@ Para pasar datos del modo local al compartido: exportar el respaldo en el navega
 
 ## Administrar un torneo
 
-1. En **Torneos → Crear torneo**, elegir categoría, disciplina, fecha, sede, partidas necesarias para ganar cada partido y formato: eliminación directa, doble eliminación o liga todos contra todos.
-2. Abrir **Administrar torneo** e inscribir jugadores de esa categoría. Se puede crear una ficha desde el mismo torneo y luego inscribirla.
+1. En **Torneos → Crear torneo**, elegir la categoría —o «Abierto · todas las categorías» para no filtrar por categoría—, disciplina, fecha, sede, partidas necesarias para ganar cada partido y formato: eliminación directa, doble eliminación o liga todos contra todos.
+2. Abrir **Administrar torneo** e inscribir jugadores de esa categoría, o de cualquier categoría si el torneo es abierto. Se puede crear una ficha desde el mismo torneo y luego inscribirla.
 3. Elegir **Sorteo aleatorio**, **Cabezas de serie por ranking** o **Cabezas de serie en orden manual**. El orden manual se modifica con las flechas de los inscriptos; el cuadro distribuye las cabezas de serie y los pases libres.
 4. Realizar el sorteo inicial. El sorteo aleatorio se resuelve y se guarda al instante, con el azar de siempre, y después se revela con suspenso: cada lugar del cuadro es una bola numerada del bolillero que gira mientras pasan los nombres, y van frenando de a una hasta que quedan a la vista todos los cruces (unos 7 segundos con 16 inscriptos; se puede saltar). La animación no decide nada: muestra exactamente lo guardado. Cualquiera puede volver a verla desde «Ver el sorteo otra vez». Con cabezas de serie no hay revelación, porque los cruces ya están dichos, y tampoco para quien pidió menos movimiento en su sistema. Los cruces quedan guardados y se pueden consultar o compartir. Antes del primer resultado, **Volver a sortear** reemplaza los cruces y la programación; **Quitar fixture** permite corregir las inscripciones.
 5. Asignar mesa y hora, cargar los marcadores y seguir el avance a la final. Los pases libres avanzan sin cargar un resultado. El ganador debe alcanzar el número de partidas configurado, sin empate.

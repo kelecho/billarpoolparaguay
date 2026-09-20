@@ -6,8 +6,13 @@ import BannerField from './BannerField';
 import ConfirmButton from './ConfirmButton';
 import Field from './Field';
 
+/** Valor del selector para el torneo abierto; no puede chocar con el nombre de una categoría. */
+const OPEN = '*abierto*';
+
 export default function TournamentForm({ tournament, state, submit }: { tournament?: Tournament; state: State; submit: (action: Action) => void }) {
   const [format, setFormat] = useState<Format>(tournament?.format ?? 'single');
+  const [scope, setScope] = useState(tournament?.open ? OPEN : tournament?.category ?? '');
+  const open = scope === OPEN;
   const locked = Boolean(tournament?.fixture);
   const [qualifiers, setQualifiers] = useState(tournament?.qualifiers ?? 2);
   const [leagueRounds, setLeagueRounds] = useState<1 | 2>(tournament?.leagueRounds ?? 1);
@@ -27,7 +32,8 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         date: String(data.get('date') ?? tournament?.date),
         venue: String(data.get('venue')).trim(),
         discipline: (data.get('discipline') ?? tournament?.discipline) as Discipline,
-        category: String(data.get('category') ?? tournament?.category ?? '') || undefined,
+        category: open ? undefined : scope || undefined,
+        ...(open ? { open: true as const } : {}),
         raceTo: Number(data.get('raceTo') ?? tournament?.raceTo ?? 5),
         ...(banner ? { banner } : {}),
         ...(format === 'double' ? { format, qualifiers } : {}),
@@ -46,7 +52,7 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         </Field>
       </div>
       <div className="form-grid">
-        <Field label="Categoría del torneo"><select name="category" defaultValue={tournament?.category ?? ''} required={!tournament} disabled={Boolean(tournament?.registered?.length)}><option value="">Elegir categoría</option>{state.rules.categories.map(c => <option key={c.name}>{c.name}</option>)}</select></Field>
+        <Field label="Categoría del torneo"><select value={scope} onChange={e => setScope(e.target.value)} required={!tournament} disabled={Boolean(tournament?.registered?.length)}><option value="">Elegir categoría</option><option value={OPEN}>Abierto · todas las categorías</option>{state.rules.categories.map(c => <option key={c.name}>{c.name}</option>)}</select></Field>
         <Field label="Partidas para ganar"><input name="raceTo" type="number" min="1" max="30" defaultValue={tournament?.raceTo ?? 5} required disabled={Boolean(tournament?.fixture)} /></Field>
       </div>
       <div className="form-grid">
@@ -60,6 +66,7 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
       {format !== 'league' && (grandFinal
         ? <label className="check" key="rematch"><input name="finalRematch" type="checkbox" disabled={locked} defaultChecked={tournament?.finalRematch} /><span>Revancha en la gran final: si pierde el invicto, juegan un partido más</span></label>
         : <label className="check" key="third"><input name="thirdPlace" type="checkbox" disabled={locked} defaultChecked={tournament?.thirdPlace} /><span>Partido por el tercer puesto entre quienes pierden las semifinales</span></label>)}
+      {open && <p className="muted small">Torneo abierto: podés inscribir jugadores de cualquier categoría y los puntos van al ranking general.</p>}
       <Field label="Sede y ciudad"><input name="venue" defaultValue={tournament?.venue} required maxLength={150} /></Field>
       <BannerField banner={banner} onChange={setBanner} onBusy={setProcessing} />
       <button className="button primary" type="submit">Guardar torneo</button>

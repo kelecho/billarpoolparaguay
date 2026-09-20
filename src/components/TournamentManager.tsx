@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ImagePlus, Pencil, Share2, Shuffle } from 'lucide-react';
-import { dateLabel, localDate, standings, type Action, type State, type Tournament } from '../domain';
+import { dateLabel, hasRoster, localDate, standings, type Action, type State, type Tournament } from '../domain';
 import { drawPlayers, fixtureOutcome, resolveFixture } from '../fixture';
 import BannerField from './BannerField';
 import CategoryBadge from './CategoryBadge';
@@ -51,21 +51,22 @@ export default function TournamentManager({ tournament: t, state, canEdit, live 
     </div>}
     <div className="tournament-summary">
       {t.category && <CategoryBadge category={t.category} rules={state.rules} large />}
-      <div><p>{dateLabel(t.date)} · {t.discipline}</p><p className="muted">{t.venue}</p>{t.category && <p className="muted small">{league ? `Liga todos contra todos · ${t.leagueRounds === 2 ? 'ida y vuelta' : 'una vuelta'}` : t.format === 'double' ? `Doble eliminación · ${t.qualifiers === 2 ? t.finalRematch ? 'gran final con revancha' : 'gran final a partido único' : `${t.qualifiers} clasifican a la fase final`}` : 'Eliminación directa'}{t.thirdPlace && ' · con partido por el tercer puesto'} · Primero en llegar a {t.raceTo ?? 5} partidas · {registered.length} inscriptos</p>}</div>
+      {t.open && <span className="tag">Abierto · todas las categorías</span>}
+      <div><p>{dateLabel(t.date)} · {t.discipline}</p><p className="muted">{t.venue}</p>{hasRoster(t) && <p className="muted small">{league ? `Liga todos contra todos · ${t.leagueRounds === 2 ? 'ida y vuelta' : 'una vuelta'}` : t.format === 'double' ? `Doble eliminación · ${t.qualifiers === 2 ? t.finalRematch ? 'gran final con revancha' : 'gran final a partido único' : `${t.qualifiers} clasifican a la fase final`}` : 'Eliminación directa'}{t.thirdPlace && ' · con partido por el tercer puesto'} · Primero en llegar a {t.raceTo ?? 5} partidas · {registered.length} inscriptos</p>}</div>
     </div>
     <div className="modal-actions">
       {canEdit && !finished && <button className="button" disabled={busy} onClick={onEdit}><Pencil size={15} />Editar torneo</button>}
-      {canEdit && !finished && !t.category && <button className="button" disabled={t.date > localDate()} onClick={onLegacyResults}>Cargar resultados</button>}
+      {canEdit && !finished && !hasRoster(t) && <button className="button" disabled={t.date > localDate()} onClick={onLegacyResults}>Cargar resultados</button>}
       {canEdit && finished && !banner && <button className="button" disabled={busy} onClick={() => setBanner({ value: t.banner })}><ImagePlus size={15} />{t.banner ? 'Cambiar banner' : 'Agregar banner'}</button>}
       <button className="button" onClick={onShare}><Share2 size={15} />Compartir torneo</button>
     </div>
-    {!t.category && !finished && <p className="muted">Asigná una categoría desde «Editar torneo» para abrir las inscripciones y realizar el sorteo.</p>}
+    {!hasRoster(t) && !finished && <p className="muted">Elegí una categoría, o marcá el torneo como abierto, desde «Editar torneo» para abrir las inscripciones y realizar el sorteo.</p>}
     {reveal && (busy || !t.fixture) && <p className="draw-wait" role="status">Girando el bolillero…</p>}
     {reveal && !busy && t.fixture && <DrawReveal key={t.fixture.seeds.join()} seeds={t.fixture.seeds} name={id => state.players.find(p => p.id === id)?.name ?? 'Jugador'} onDone={() => setReveal(false)} />}
-    {!reveal && t.category && !t.fixture && !finished && (canEdit
+    {!reveal && hasRoster(t) && !t.fixture && !finished && (canEdit
       ? <TournamentRegistration onCreatePlayer={onCreatePlayer} tournament={t} state={state} busy={busy} submit={save} />
       : <section><h3>Inscriptos · {registered.length}</h3><ul className="public-registrations">{registered.map(id => <li key={id}>{state.players.find(p => p.id === id)?.name}</li>)}</ul><p className="muted">El fixture estará disponible después del sorteo inicial.</p></section>)}
-    {!reveal && canEdit && t.category && !finished && !t.fixture && <section className="draw-panel">
+    {!reveal && canEdit && hasRoster(t) && !finished && !t.fixture && <section className="draw-panel">
       <div><h3><Shuffle size={21} />Sorteo inicial y emparejamientos</h3><p className="muted small">{league ? 'Cada jugador enfrenta a todos los demás. Si hay un número impar, uno descansa por jornada.' : 'Revisá los inscriptos antes de armar el cuadro. Los pases libres se resuelven automáticamente.'}</p></div>
       <Field label="Armado de cruces"><select value={method} onChange={e => setMethod(e.target.value as typeof method)}><option value="random">Sorteo aleatorio</option><option value="ranking">{league ? 'Orden por ranking' : 'Cabezas de serie por ranking'}</option><option value="manual">{league ? 'Orden de inscripción' : 'Cabezas de serie en orden manual'}</option></select></Field>
       <p className="muted small">{league ? 'El orden elegido define las jornadas; todos juegan la misma cantidad de encuentros. Podés asignar fecha, mesa y horario a cada partido.' : method === 'random' ? 'Todos participan del sorteo, incluidos los pases libres. Los cruces quedan guardados para compartirlos.' : 'Las primeras cabezas de serie reciben los pases libres y se distribuyen en lados opuestos del cuadro.'}</p>

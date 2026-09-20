@@ -458,7 +458,8 @@ describe('Tablas por entidad', () => {
     const base = { date: '2025-03-01', venue: 'Club', discipline: 'Bola 8' as const, category: 'Tercera', raceTo: 2, results: [] };
     send({ type: 'tournament.save', tournament: { ...base, id: 'tercero', name: 'Con tercer puesto', thirdPlace: true } });
     send({ type: 'tournament.save', tournament: { ...base, id: 'revancha', name: 'Con revancha', format: 'double', qualifiers: 2, finalRematch: true } });
-    for (const tournamentId of ['tercero', 'revancha']) {
+    send({ type: 'tournament.save', tournament: { ...base, id: 'abierto', name: 'Sin filtro de categoría', category: undefined, open: true } });
+    for (const tournamentId of ['tercero', 'revancha', 'abierto']) {
       send({ type: 'registration.save', tournamentId, playerIds: entrants });
       send({ type: 'fixture.generate', tournamentId, playerIds: entrants, draw: 'ranking' });
     }
@@ -469,6 +470,8 @@ describe('Tablas por entidad', () => {
     expect(stored.tournaments[0].fixture.matches.at(-1)).toMatchObject({ id: 'T1-1', bracket: 'T' });
     expect(stored.tournaments[1]).toMatchObject({ finalRematch: true });
     expect(stored.tournaments[1].fixture.matches.slice(-2).map((m: { id: string }) => m.id)).toEqual(['F1-1', 'F2-1']);
+    expect(stored.tournaments[2]).toMatchObject({ open: true, registered: entrants });
+    expect(stored.tournaments[2].category).toBeUndefined();
   });
 
   it('restaura un respaldo grande con pocas consultas', async () => {

@@ -1,4 +1,4 @@
-import type { State, Tournament } from './domain';
+import { hasRoster, type State, type Tournament } from './domain';
 import { buildFixture, fixturePlacements, hasScoredDescendant, entrantLimit, resolveFixture, validMatchDate } from './fixture.ts';
 
 export type TournamentAction =
@@ -14,13 +14,13 @@ export function applyTournamentAction(state: State, action: TournamentAction, to
   const current = state.tournaments.find(t => t.id === action.tournamentId);
   if (!current) throw new Error('El torneo no existe.');
   if (current.results.length) throw new Error('Reabrí el torneo antes de modificarlo.');
-  if (!current.category) throw new Error('Asigná una categoría al torneo antes de inscribir jugadores.');
+  if (!hasRoster(current)) throw new Error('Elegí la categoría del torneo, o marcalo como abierto, antes de inscribir jugadores.');
   let tournament: Tournament = { ...current };
   switch (action.type) {
     case 'registration.save': {
       if (current.fixture) throw new Error('Quitá el fixture antes de cambiar los inscriptos.');
       if (!Array.isArray(action.playerIds) || action.playerIds.length > entrantLimit(current.format) || new Set(action.playerIds).size !== action.playerIds.length) throw new Error(`Inscribí hasta ${entrantLimit(current.format)} jugadores distintos.`);
-      if (action.playerIds.some(id => !state.players.some(p => p.id === id && p.category === current.category))) throw new Error('Solo podés inscribir jugadores de la categoría del torneo.');
+      if (current.category && action.playerIds.some(id => !state.players.some(p => p.id === id && p.category === current.category))) throw new Error('Solo podés inscribir jugadores de la categoría del torneo.');
       tournament.registered = [...action.playerIds];
       break;
     }
