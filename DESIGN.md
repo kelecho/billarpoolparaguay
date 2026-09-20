@@ -1,4 +1,4 @@
-# Identidad de Pool Paraguay
+# Identidad de BillarPool Paraguay
 
 Dirección: gráfica de club deportivo y cartel pintado. Una plataforma de jugadores paraguayos cuyo centro es la clasificación y los encuentros locales.
 

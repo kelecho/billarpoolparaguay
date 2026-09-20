@@ -50,7 +50,7 @@ def badge(name, title, light, dark, stars, mark, ornament=''):
     star_xs = {0: [], 1: [64], 2: [56, 72], 3: [48, 64, 80]}[stars]
     decoration = wings(True) + laurel() if ornament == 'crown' else wings(False) if ornament == 'wings' else laurel() if ornament == 'laurel' else ''
     body = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-<title>Insignia de {title} · Pool Paraguay</title>
+<title>Insignia de {title} · BillarPool Paraguay</title>
 <defs>
  <linearGradient id="metal" x1="25" y1="15" x2="103" y2="114" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6d3"/><stop offset=".23" stop-color="#ecc565"/><stop offset=".46" stop-color="#a66b16"/><stop offset=".52" stop-color="#ffe6a0"/><stop offset=".76" stop-color="#d7a13b"/><stop offset="1" stop-color="#805010"/></linearGradient>
  <linearGradient id="face" x1="44" y1="49" x2="76" y2="91" gradientUnits="userSpaceOnUse"><stop stop-color="#fff9e4"/><stop offset=".48" stop-color="#ffe4a0"/><stop offset="1" stop-color="#daa747"/></linearGradient>

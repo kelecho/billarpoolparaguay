@@ -7,8 +7,8 @@ export default defineConfig({
     registerType: 'prompt',
     includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
     manifest: {
-      id: '/', name: 'Pool Paraguay · Ranking', short_name: 'Pool Paraguay',
-      description: 'El pool tiene bandera. Jugadores, torneos y ranking del Paraguay.',
+      id: '/', name: 'BillarPool Paraguay · Ranking', short_name: 'BillarPool',
+      description: 'BillarPool Paraguay: jugadores, torneos y ranking del Paraguay.',
       lang: 'es-PY', start_url: '/', scope: '/', display: 'standalone',
       background_color: '#f0f3f3', theme_color: '#163d67',
       icons: [

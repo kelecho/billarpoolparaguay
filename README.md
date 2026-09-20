@@ -1,4 +1,4 @@
-# Pool Paraguay
+# BillarPool Paraguay
 
 Aplicación local para administrar jugadores, torneos y un ranking de pool. React, TypeScript y Vite, con interfaz adaptable a celulares y soporte PWA.
 

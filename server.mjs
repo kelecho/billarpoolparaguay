@@ -44,4 +44,4 @@ createServer(async (req, res) => {
   const response = await worker.fetch(request, env);
   res.writeHead(response.status, Object.fromEntries(response.headers));
   res.end(Buffer.from(await response.arrayBuffer()));
-}).listen(port, '0.0.0.0', () => console.log(`Pool Paraguay (modo compartido) en http://localhost:${port}`));
+}).listen(port, '0.0.0.0', () => console.log(`BillarPool Paraguay (modo compartido) en http://localhost:${port}`));

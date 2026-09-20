@@ -90,13 +90,13 @@ export default function App() {
   }
   /** Con aviso del navegador se instala de un toque; si no, o si la persona lo rechaza, se muestra la guía. */
   async function installApp() {
-    if (app.canPrompt && await app.install()) { setModal(null); setNotice('Listo: Pool Paraguay quedó instalada.'); }
+    if (app.canPrompt && await app.install()) { setModal(null); setNotice('Listo: BillarPool quedó instalada.'); }
     else open({ kind: 'install' });
   }
   async function share(title: string) {
     const url = window.location.href;
     try {
-      if (navigator.share) await navigator.share({ title: `${title} · Pool Paraguay`, url });
+      if (navigator.share) await navigator.share({ title: `${title} · BillarPool Paraguay`, url });
       else { await navigator.clipboard.writeText(url); setNotice('Enlace copiado. Pegalo donde quieras compartirlo.'); }
     } catch { /* la persona canceló el diálogo de compartir */ }
   }
@@ -117,8 +117,8 @@ export default function App() {
       <a className="skip-link" href="#main-content" onClick={e => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
       <div className="national-stripe" aria-hidden="true" />
       <header className="club-header">
-        <a className="brand" href={pageHref('Ranking')} aria-label="Pool Paraguay, inicio">
-          <img src="/icon.svg" alt="" /><span>POOL<span>PARAGUAY</span></span>
+        <a className="brand" href={pageHref('Ranking')} aria-label="BillarPool Paraguay, inicio">
+          <img src="/icon.svg" alt="" /><span className="brand-wordmark"><span className="brand-name">BILLAR<span>POOL</span></span><span className="brand-location">PARAGUAY</span></span>
         </a>
         <nav aria-label="Navegación principal" className={canEdit ? undefined : 'nav-public'}>
           {NAV.filter(item => item.name !== 'Configuración' || canEdit).map(({ name, icon: Icon }) => (

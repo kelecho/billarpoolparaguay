@@ -22,13 +22,13 @@ export default function InstallGuide({ platform, canPrompt, onInstall }: { platf
           <li><span>Abrí esta página en <strong>Safari</strong>. Desde WhatsApp, Instagram o Facebook no aparece la opción: tocá «Abrir en Safari» o copiá el enlace.</span></li>
           <li><Share size={20} aria-hidden="true" /><span>Tocá <strong>Compartir</strong>: el cuadrado con una flecha hacia arriba, en la barra de abajo.</span></li>
           <li><SquarePlus size={20} aria-hidden="true" /><span>Deslizá la lista hacia abajo y elegí <strong>«Agregar a inicio»</strong>.</span></li>
-          <li><span>Tocá <strong>«Agregar»</strong>, arriba a la derecha. El icono de Pool Paraguay aparece en tu pantalla de inicio.</span></li>
+          <li><span>Tocá <strong>«Agregar»</strong>, arriba a la derecha. El icono de BillarPool aparece en tu pantalla de inicio.</span></li>
         </ol>}
         {shown === 'android' && <ol className="install-steps">
           <li><span>Abrí esta página en <strong>Chrome</strong>. Desde WhatsApp, Instagram o Facebook, tocá los tres puntos y elegí «Abrir en Chrome».</span></li>
           <li><EllipsisVertical size={20} aria-hidden="true" /><span>Tocá los <strong>tres puntos</strong>, arriba a la derecha.</span></li>
           <li><Download size={20} aria-hidden="true" /><span>Elegí <strong>«Instalar app»</strong> o <strong>«Agregar a la pantalla principal»</strong>.</span></li>
-          <li><span>Confirmá con <strong>«Instalar»</strong>. El icono de Pool Paraguay aparece junto a tus otras aplicaciones.</span></li>
+          <li><span>Confirmá con <strong>«Instalar»</strong>. El icono de BillarPool aparece junto a tus otras aplicaciones.</span></li>
         </ol>}
         {shown === 'desktop' && <ol className="install-steps">
           <li><span>Abrí esta página en <strong>Chrome</strong> o <strong>Edge</strong>.</span></li>

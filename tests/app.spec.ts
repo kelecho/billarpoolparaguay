@@ -437,7 +437,7 @@ test.describe('instalación en el dispositivo', () => {
 
     await offer('accepted');
     await start();
-    await expect(page.getByRole('status')).toContainText('Pool Paraguay quedó instalada');
+    await expect(page.getByRole('status')).toContainText('BillarPool quedó instalada');
     expect(await page.evaluate(() => (window as any).prompted)).toBe(2);
     await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
     await expect(page.getByRole('button', { name: 'Instalar la app' })).toHaveCount(0);
