@@ -1,6 +1,6 @@
 import { MAX_ENTRANTS, validateFixture, type Fixture } from './fixture.ts';
 import { applyTournamentAction, type TournamentAction } from './tournamentActions.ts';
-import { validPlayerPhoto } from './playerPhoto.ts';
+import { isPhotoRef, validPlayerPhoto } from './playerPhoto.ts';
 
 export const DISCIPLINES = ['Bola 8', 'Bola 9', 'Bola 10'] as const;
 export type Discipline = (typeof DISCIPLINES)[number];
@@ -118,7 +118,7 @@ export function validateState(input: unknown): State {
   if (!Array.isArray(rules.points) || rules.points.length !== 8 || !rules.points.every(num) || !num(rules.participation)) return fail();
 
   if (!value.players.every(p => p && str(p.id) && str(p.name) && str(p.city) && typeof p.club === 'string' && p.club.length <= 150 && num(p.initialPoints))) return fail();
-  if (!value.players.every(p => p.photo === undefined || validPlayerPhoto(p.photo))) throw new Error('La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
+  if (!value.players.every(p => p.photo === undefined || validPlayerPhoto(p.photo) || isPhotoRef(p.photo))) throw new Error('La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
   if (value.players.some(p => p.category !== undefined && !rules.categories.some(c => c.name === p.category))) return fail();
   const ids = new Set(value.players.map(p => p.id));
   if (ids.size !== value.players.length || new Set(value.tournaments.map(t => t?.id)).size !== value.tournaments.length) return fail();

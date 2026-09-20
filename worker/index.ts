@@ -1,7 +1,11 @@
-import { applyAction, createState, dateIn, describeAction, validateState, type Action, type State } from '../src/domain.ts';
+import { applyAction, dateIn, describeAction, validateState, type Action, type State } from '../src/domain.ts';
+import { isPhotoRef, PHOTO_PATH, validPlayerPhoto } from '../src/playerPhoto.ts';
+import { head, load, save } from './store.ts';
 
 export interface Env {
   DB: D1Database;
+  /** Fotos de los jugadores; cada archivo se llama como el SHA-256 de su contenido. */
+  PHOTOS: R2Bucket;
   ASSETS: Fetcher;
   /** Secreto: `wrangler secret put ADMIN_PASSWORD`. En local, `.dev.vars`. */
   ADMIN_PASSWORD?: string;
@@ -26,6 +30,7 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
 
 const encoder = new TextEncoder();
+const photoKey = (ref: string) => ref.slice(PHOTO_PATH.length);
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, '0')).join('');
 const sha256 = (text: string) => crypto.subtle.digest('SHA-256', encoder.encode(text));
 
@@ -73,24 +78,42 @@ async function body(request: Request): Promise<Record<string, unknown>> {
   throw new HttpError(400, 'El contenido no es JSON válido.');
 }
 
-async function load(env: Env): Promise<{ state: State; version: number }> {
-  const row = await env.DB.prepare('SELECT version, state FROM ranking WHERE id = 1').first<{ version: number; state: string }>();
-  return row ? { state: validateState(JSON.parse(row.state)), version: row.version } : { state: createState(false), version: 0 };
+/** Las fichas del servidor solo llevan referencias; una foto nueva tiene que estar subida antes de guardarse. */
+async function checkPhotos(env: Env, next: State, previous?: State) {
+  if (next.players.some(p => p.photo && !isPhotoRef(p.photo))) throw new HttpError(422, 'Subí la foto con /api/photos y guardá la referencia que devuelve.');
+  if (!previous) return;
+  const known = new Set(previous.players.map(p => p.photo));
+  for (const player of next.players) {
+    if (player.photo && !known.has(player.photo) && !(await env.PHOTOS.head(photoKey(player.photo)))) throw new HttpError(422, 'La foto del jugador no está subida. Volvé a cargarla desde su ficha.');
+  }
 }
 
-/** Guarda solo si nadie escribió desde `version`; así dos administradores no se pisan cambios. */
-async function save(env: Env, state: State, version: number, audit: { type: string; summary: string; reason?: string }) {
-  const now = new Date().toISOString();
-  const write = version === 0
-    ? env.DB.prepare('INSERT OR IGNORE INTO ranking (id, version, state, updated_at) VALUES (1, 1, ?, ?)').bind(JSON.stringify(state), now)
-    : env.DB.prepare('UPDATE ranking SET version = version + 1, state = ?, updated_at = ? WHERE id = 1 AND version = ?').bind(JSON.stringify(state), now, version);
-  const result = await write.run();
-  if (!result.meta.changes) return false;
-  await env.DB.prepare('INSERT INTO audit (at, type, summary, reason) VALUES (?, ?, ?, ?)').bind(now, audit.type, audit.summary, audit.reason ?? null).run();
-  return true;
+/** Borra de R2 las fotos que ninguna ficha usa ya. Si falla, solo queda un archivo huérfano. */
+async function dropUnusedPhotos(env: Env, next: State, previous: State) {
+  const used = new Set(next.players.map(p => p.photo));
+  const unused = [...new Set(previous.players.flatMap(p => p.photo && !used.has(p.photo) ? [photoKey(p.photo)] : []))];
+  try {
+    for (let i = 0; i < unused.length; i += 1000) await env.PHOTOS.delete(unused.slice(i, i + 1000));
+  } catch (e) { console.error(e); }
 }
 
-const conflict = async (env: Env) => json({ error: 'Otra persona guardó cambios mientras editabas. Actualizamos los datos: revisalos y volvé a intentar.', ...(await load(env)) }, 409);
+async function uploadPhoto(request: Request, env: Env) {
+  const { photo } = await body(request);
+  if (!validPlayerPhoto(photo)) throw new HttpError(422, 'La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
+  const bytes = Uint8Array.from(atob(photo.slice(photo.indexOf(',') + 1)), c => c.charCodeAt(0));
+  const key = `${hex(await crypto.subtle.digest('SHA-256', bytes))}.jpg`;
+  await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+  return json({ photo: PHOTO_PATH + key }, 201);
+}
+
+/** El nombre depende del contenido: la misma dirección siempre devuelve la misma imagen y se puede cachear para siempre. */
+async function servePhoto(env: Env, path: string) {
+  const object = isPhotoRef(path) ? await env.PHOTOS.get(photoKey(path)) : null;
+  if (!object) throw new HttpError(404, 'No encontrado.');
+  return new Response(object.body, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
+}
+
+const conflict = async (env: Env) => json({ error: 'Otra persona guardó cambios mientras editabas. Actualizamos los datos: revisalos y volvé a intentar.', ...(await load(env.DB)) }, 409);
 
 async function login(request: Request, env: Env) {
   const secret = password(env);
@@ -117,7 +140,17 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
     if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, 'Origen no permitido.');
   }
 
-  if (path === '/api/state' && method === 'GET') return json({ ...(await load(env)), admin: await isAdmin(request, env) });
+  if (path === '/api/state' && method === 'GET') {
+    // Quien ya tiene la versión vigente recibe solo la confirmación: ahorra datos móviles y lecturas de D1.
+    const tag = new URL(request.url).searchParams.get('tag');
+    const current = tag ? await head(env.DB) : null;
+    return json({ ...(current?.tag === tag ? current : await load(env.DB)), admin: await isAdmin(request, env) });
+  }
+  if (path.startsWith(PHOTO_PATH) && method === 'GET') return servePhoto(env, path);
+  if (path === '/api/photos' && method === 'POST') {
+    await requireAdmin(request, env);
+    return uploadPhoto(request, env);
+  }
   if (path === '/api/login' && method === 'POST') return login(request, env);
   if (path === '/api/logout' && method === 'POST') return json({ admin: false }, 200, { 'set-cookie': sessionCookie('', 0) });
 
@@ -125,7 +158,7 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
     await requireAdmin(request, env);
     const { action, version } = await body(request) as { action?: Action; version?: number };
     if (!action || typeof action !== 'object' || typeof version !== 'number') throw new HttpError(400, 'Falta la acción o la versión.');
-    const current = await load(env);
+    const current = await load(env.DB);
     if (current.version !== version) return conflict(env);
     let next: State;
     try {
@@ -134,14 +167,19 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
       throw new HttpError(422, e instanceof Error ? e.message : 'No se pudo aplicar el cambio.');
     }
     const audit = { type: action.type, summary: describeAction(current.state, action), reason: action.type === 'results.reopen' ? action.reason.trim() : undefined };
-    if (!(await save(env, next, version, audit))) return conflict(env);
-    return json({ state: next, version: version + 1 });
+    await checkPhotos(env, next, current.state);
+    const tag = await save(env.DB, next, current.state, version, audit);
+    if (!tag) return conflict(env);
+    await dropUnusedPhotos(env, next, current.state);
+    return json({ state: next, version: version + 1, tag });
   }
 
   if (path === '/api/state' && method === 'PUT') {
     await requireAdmin(request, env);
     const { state, version } = await body(request) as { state?: unknown; version?: number };
     if (typeof version !== 'number') throw new HttpError(400, 'Falta la versión.');
+    const current = await load(env.DB);
+    if (current.version !== version) return conflict(env);
     let next: State;
     try {
       next = { ...validateState(state), demo: false };
@@ -149,8 +187,11 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
       throw new HttpError(422, e instanceof Error ? e.message : 'Los datos no son válidos.');
     }
     const audit = { type: 'state.replace', summary: `Reemplazó todos los datos por ${next.players.length} jugadores y ${next.tournaments.length} torneos` };
-    if (!(await save(env, next, version, audit))) return conflict(env);
-    return json({ state: next, version: version + 1 });
+    await checkPhotos(env, next);
+    const tag = await save(env.DB, next, null, version, audit);
+    if (!tag) return conflict(env);
+    await dropUnusedPhotos(env, next, current.state);
+    return json({ state: next, version: version + 1, tag });
   }
 
   if (path === '/api/audit' && method === 'GET') {

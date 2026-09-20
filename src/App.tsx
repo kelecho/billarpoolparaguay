@@ -79,8 +79,8 @@ export default function App() {
     await store.dispatch(action);
     if (action.type === 'player.remove' || action.type === 'tournament.remove') navigate(pageHref(page));
   });
-  function exportBackup() {
-    try { downloadJSON(store.exportContent(), `pool-paraguay-${localDate()}.json`); } catch (e) { setError(errorMessage(e)); }
+  async function exportBackup() {
+    try { downloadJSON(await store.exportContent(), `pool-paraguay-${localDate()}.json`); } catch (e) { setError(errorMessage(e)); }
   }
   async function share(title: string) {
     const url = window.location.href;

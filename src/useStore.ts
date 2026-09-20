@@ -19,8 +19,8 @@ export type Store = {
   replace: (state: State) => Promise<void>;
   login: (password: string) => Promise<void>;
   logout: () => Promise<void>;
-  /** Contenido para el respaldo; en modo local bloqueado devuelve el texto original sin tocar. */
-  exportContent: () => string;
+  /** Contenido para el respaldo, con las fotos incluidas; en modo local bloqueado devuelve el texto original sin tocar. */
+  exportContent: () => Promise<string>;
 };
 
 export function useStore(): Store {
@@ -89,6 +89,6 @@ export function useStore(): Store {
     replace: async next => remote.REMOTE ? write(() => remote.replaceState(next, version.current)) : commitLocal(next, true),
     login: async password => { await remote.login(password); await refresh(); },
     logout: async () => { await remote.logout(); setAdmin(false); },
-    exportContent: () => storageBlocked ? localStorage.getItem(STORAGE_KEY) ?? '' : JSON.stringify(state, null, 2),
+    exportContent: async () => storageBlocked ? localStorage.getItem(STORAGE_KEY) ?? '' : JSON.stringify(remote.REMOTE ? await remote.exportState(state) : state, null, 2),
   };
 }

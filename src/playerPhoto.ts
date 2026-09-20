@@ -14,3 +14,7 @@ export function validPlayerPhoto(photo: unknown): photo is string {
       && bytes.charCodeAt(2) === 255 && bytes.charCodeAt(bytes.length - 2) === 255 && bytes.charCodeAt(bytes.length - 1) === 217;
   } catch { return false; }
 }
+
+/** En el modo compartido la ficha guarda la dirección del archivo, nombrado por el SHA-256 de su contenido. */
+export const PHOTO_PATH = '/api/photos/';
+export const isPhotoRef = (photo: unknown): photo is string => typeof photo === 'string' && /^\/api\/photos\/[0-9a-f]{64}\.jpg$/.test(photo);

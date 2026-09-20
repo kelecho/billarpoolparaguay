@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 // @ts-expect-error: adaptador en JavaScript, sin tipos
 import { createD1 } from '../scripts/d1-node.mjs';
-import { createState } from '../src/domain.ts';
+// @ts-expect-error: adaptador en JavaScript, sin tipos
+import { createR2 } from '../scripts/r2-node.mjs';
+import { applyAction, createState, type Action } from '../src/domain.ts';
 import worker, { type Env } from './index.ts';
 
 const ORIGIN = 'https://pool.example';
@@ -27,7 +29,7 @@ const player = { id: 'ana', name: 'Ana Vera', city: 'Asunción', club: '', initi
 
 beforeEach(() => {
   cookie = '';
-  env = { DB: createD1(), ADMIN_PASSWORD: 'clave-de-prueba', ASSETS: { fetch: async () => new Response('app') } } as unknown as Env;
+  env = { DB: createD1(), PHOTOS: createR2(), ADMIN_PASSWORD: 'clave-de-prueba', ASSETS: { fetch: async () => new Response('app') } } as unknown as Env;
 });
 
 describe('API del ranking compartido', () => {
@@ -89,5 +91,185 @@ describe('API del ranking compartido', () => {
     expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 }, { origin: 'https://otro.example' })).status).toBe(403);
     const page = await worker.fetch(new Request(`${ORIGIN}/torneos`), env);
     expect(await page.text()).toBe('app');
+  });
+});
+
+describe('Fotos compartidas', () => {
+  async function photoFixture() {
+    const { readFileSync } = await import('node:fs');
+    return `data:image/jpeg;base64,${readFileSync(new URL('../tests/fixtures/player.jpg', import.meta.url)).toString('base64')}`;
+  }
+  const upload = async (photo: string) => (await call('POST', '/api/photos', { photo })).data.photo as string;
+  const stored = async (ref: string) => (await worker.fetch(new Request(ORIGIN + ref), env)).status === 200;
+
+  it('guarda la foto en R2, deja la referencia en la ficha y la publica con caché permanente', async () => {
+    const photo = await photoFixture();
+    expect((await call('POST', '/api/photos', { photo })).status).toBe(401);
+    await login();
+    const ref = await upload(photo);
+    expect(ref).toMatch(/^\/api\/photos\/[0-9a-f]{64}\.jpg$/);
+    expect(await upload(photo)).toBe(ref);
+    expect((await call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, photo: ref } }, version: 0 })).status).toBe(200);
+    cookie = '';
+    expect((await call('GET', '/api/state')).data.state.players[0].photo).toBe(ref);
+    const served = await worker.fetch(new Request(ORIGIN + ref), env);
+    expect(served.headers.get('content-type')).toBe('image/jpeg');
+    expect(served.headers.get('cache-control')).toContain('immutable');
+    expect(`data:image/jpeg;base64,${Buffer.from(await served.arrayBuffer()).toString('base64')}`).toBe(photo);
+    expect((await call('GET', `/api/photos/${'0'.repeat(64)}.jpg`)).status).toBe(404);
+  });
+
+  it('rechaza fotos inválidas, incrustadas o sin subir', async () => {
+    await login();
+    const photo = await photoFixture();
+    expect((await call('POST', '/api/photos', { photo: 'data:image/svg+xml;base64,PHN2Zy8+' })).status).toBe(422);
+    const save = (value: string) => call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, photo: value } }, version: 0 });
+    expect((await save(photo)).status).toBe(422);
+    expect((await save(`/api/photos/${'a'.repeat(64)}.jpg`)).status).toBe(422);
+    expect((await save('https://otro.example/foto.jpg')).status).toBe(422);
+    expect((await call('PUT', '/api/state', { state: { ...createState(false), players: [{ ...player, photo }] }, version: 0 })).status).toBe(422);
+  });
+
+  it('borra de R2 las fotos que quedan sin ficha y conserva la foto ante un conflicto', async () => {
+    await login();
+    const ref = await upload(await photoFixture());
+    await call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, photo: ref } }, version: 0 });
+    expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 })).status).toBe(409);
+    expect(await stored(ref)).toBe(true);
+    expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 1 })).status).toBe(200);
+    expect((await call('GET', '/api/state')).data.state.players[0].photo).toBeUndefined();
+    expect(await stored(ref)).toBe(false);
+    const again = await upload(await photoFixture());
+    await call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, photo: again } }, version: 2 });
+    expect((await call('PUT', '/api/state', { state: createState(false), version: 3 })).status).toBe(200);
+    expect(await stored(again)).toBe(false);
+  });
+
+  it('guarda los datos de un solo administrador ante escrituras simultáneas', async () => {
+    await login();
+    const photo = await upload(await photoFixture());
+    const responses = await Promise.all([
+      call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, photo } }, version: 0 }),
+      call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, name: 'Ana Nueva' } }, version: 0 }),
+    ]);
+    expect(responses.map(r => r.status).sort()).toEqual([200, 409]);
+    const winner = responses.find(r => r.status === 200)!;
+    expect((await call('GET', '/api/state')).data.state).toEqual(winner.data.state);
+    expect((await call('GET', '/api/audit')).data.entries).toHaveLength(1);
+  });
+});
+
+describe('Tablas por entidad', () => {
+  /** Torneo con fixture a medio jugar: pases libres, mesa, hora y un resultado. */
+  function played() {
+    let state = createState();
+    const send = (action: Action) => { state = applyAction(state, action, '2030-01-01'); };
+    const entrants = state.players.filter(p => p.category === 'Primera').map(p => p.id).slice(0, 3);
+    send({ type: 'tournament.save', tournament: { id: 'copa', name: 'Copa de Primera', date: '2025-03-01', venue: 'Club Central', discipline: 'Bola 9', category: 'Primera', raceTo: 3, results: [] } });
+    send({ type: 'registration.save', tournamentId: 'copa', playerIds: entrants });
+    send({ type: 'fixture.generate', tournamentId: 'copa', playerIds: [...entrants].reverse(), draw: 'ranking' });
+    send({ type: 'match.schedule', tournamentId: 'copa', matchId: '1-2', table: 'Mesa 4', time: '18:30' });
+    send({ type: 'match.score', tournamentId: 'copa', matchId: '1-2', scoreA: 3, scoreB: 1 });
+    return { ...state, demo: false };
+  }
+
+  it('devuelve el mismo registro que recibió y solo escribe las filas que cambian', async () => {
+    await login();
+    const state = played();
+    expect((await call('PUT', '/api/state', { state, version: 0 })).status).toBe(200);
+    expect((await call('GET', '/api/state')).data.state).toEqual({ ...state, tournaments: state.tournaments.map(t => ({ registered: [], ...t })) });
+    const count = async (table: string) => (await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>())!.n;
+    expect(await Promise.all(['players', 'tournaments', 'registrations', 'matches', 'results'].map(count))).toEqual([12, 6, 3, 3, 24]);
+
+    const statements: string[] = [];
+    const batch = env.DB.batch.bind(env.DB);
+    env.DB.batch = (async (list: any[]) => { statements.push(...list.map(s => s.sql)); return batch(list); }) as typeof env.DB.batch;
+    const cleared = await call('POST', '/api/actions', { action: { type: 'match.clear', tournamentId: 'copa', matchId: '1-2' }, version: 1 });
+    expect(cleared.status).toBe(200);
+    expect(statements.filter(sql => /^(INSERT INTO|DELETE FROM) (?!audit)/.test(sql))).toEqual([expect.stringMatching(/^INSERT INTO matches /)]);
+    expect((await call('GET', '/api/state')).data.state).toEqual(cleared.data.state);
+    expect((await call('POST', '/api/actions', { action: { type: 'fixture.reset', tournamentId: 'copa' }, version: 2 })).status).toBe(200);
+    expect((await call('POST', '/api/actions', { action: { type: 'registration.save', tournamentId: 'copa', playerIds: [] }, version: 3 })).status).toBe(200);
+    expect((await call('POST', '/api/actions', { action: { type: 'tournament.remove', tournamentId: 'copa' }, version: 4 })).status).toBe(200);
+    expect(await Promise.all(['tournaments', 'registrations', 'matches'].map(count))).toEqual([5, 0, 0]);
+  });
+
+  it('restaura un respaldo grande con pocas consultas', async () => {
+    await login();
+    const state = createState(false);
+    state.players = Array.from({ length: 600 }, (_, i) => ({ id: `j${i}`, name: `Jugador ${i}`, city: 'Asunción', club: 'Club Central', initialPoints: i, category: 'Tercera' }));
+    const registered = state.players.slice(0, 128).map(p => p.id);
+    let full = applyAction(state, { type: 'tournament.save', tournament: { id: 'gran', name: 'Gran Abierto', date: '2025-03-01', venue: 'Club', discipline: 'Bola 8', category: 'Tercera', results: [] } });
+    full = applyAction(full, { type: 'registration.save', tournamentId: 'gran', playerIds: registered });
+    full = applyAction(full, { type: 'fixture.generate', tournamentId: 'gran', playerIds: registered, draw: 'random' });
+    let queries = 0;
+    const { batch } = env.DB;
+    env.DB.batch = (async (list: any[]) => { queries += list.length; return batch(list); }) as typeof env.DB.batch;
+    expect((await call('PUT', '/api/state', { state: full, version: 0 })).status).toBe(200);
+    expect(queries).toBeLessThan(25);
+    env.DB.batch = batch;
+    expect((await call('GET', '/api/state')).data.state).toEqual(full);
+  });
+
+  it('confirma sin enviar datos cuando el visitante ya tiene la versión vigente', async () => {
+    await login();
+    const saved = await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 });
+    const current = await call('GET', `/api/state?tag=${encodeURIComponent(saved.data.tag)}`);
+    expect(current.data).toEqual({ version: 1, tag: saved.data.tag, admin: true });
+    const stale = await call('GET', '/api/state?tag=0-');
+    expect(stale.data).toMatchObject({ version: 1, tag: saved.data.tag, state: { players: [{ id: 'ana' }] } });
+  });
+
+  it('migra el documento de la versión anterior a las tablas', async () => {
+    const { DatabaseSync } = await import('node:sqlite');
+    const { mkdtempSync, readFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(`${tmpdir()}/pool-paraguay-`);
+    try {
+      const legacy = played();
+      const old = new DatabaseSync(`${dir}/db.sqlite`);
+      old.exec(readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8'));
+      old.exec("CREATE TABLE _migrations (name TEXT PRIMARY KEY); INSERT INTO _migrations VALUES ('0001_init.sql')");
+      old.prepare('INSERT INTO ranking (id, version, state, updated_at) VALUES (1, 7, ?, ?)').run(JSON.stringify(legacy), '2026-09-19T22:46:40.029Z');
+      old.close();
+      env.DB = createD1(`${dir}/db.sqlite`);
+      const migrated = await call('GET', '/api/state');
+      expect(migrated.data).toMatchObject({ version: 7, tag: '7-2026-09-19T22:46:40.029Z' });
+      expect(migrated.data.state).toEqual({ ...legacy, tournaments: legacy.tournaments.map(t => ({ registered: [], ...t })) });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('Torneos por categoría compartidos', () => {
+  it('administra inscriptos, sorteo, resultados y publicación con permisos y versiones', async () => {
+    await login();
+    let version = 0;
+    const send = async (action: unknown) => {
+      const response = await call('POST', '/api/actions', { action, version });
+      expect(response.status).toBe(200);
+      version = response.data.version;
+      return response.data.state;
+    };
+    for (const [id, name] of [['uno', 'Ana'], ['dos', 'Luis']]) {
+      await send({ type: 'player.save', player: { id, name, city: 'Asunción', club: '', initialPoints: 0, category: 'Tercera' } });
+    }
+    await send({ type: 'tournament.save', tournament: { id: 'cup', name: 'Copa compartida', date: '2025-01-01', venue: 'Club', discipline: 'Bola 8', category: 'Tercera', raceTo: 2, results: [] } });
+    await send({ type: 'registration.save', tournamentId: 'cup', playerIds: ['uno', 'dos'] });
+    const draw = { type: 'fixture.generate', tournamentId: 'cup', playerIds: ['dos', 'uno'], draw: 'random' };
+    const drawn = await send(draw);
+    expect((await call('POST', '/api/actions', { action: draw, version: version - 1 })).status).toBe(409);
+    const session = cookie;
+    cookie = '';
+    expect((await call('GET', '/api/state')).data.state.tournaments[0].fixture).toEqual(drawn.tournaments[0].fixture);
+    expect((await call('POST', '/api/actions', { action: draw, version })).status).toBe(401);
+    cookie = session;
+    const invalidScore = { type: 'match.score', tournamentId: 'cup', matchId: '1-1', scoreA: 2, scoreB: 2 };
+    expect((await call('POST', '/api/actions', { action: invalidScore, version })).status).toBe(422);
+    await send({ ...invalidScore, scoreB: 1 });
+    const published = await send({ type: 'fixture.publish', tournamentId: 'cup' });
+    expect(published.tournaments[0].results).toEqual([{ playerId: 'dos', place: 1, points: 300 }, { playerId: 'uno', place: 2, points: 200 }]);
+    expect(published.players.every((p: { category: string }) => p.category === 'Tercera')).toBe(true);
+    expect((await call('GET', '/api/audit')).data.entries.some((e: { type: string }) => e.type === 'fixture.generate')).toBe(true);
+    expect((await call('POST', '/api/actions', { action: { type: 'fixture.publish', tournamentId: 'cup' }, version })).status).toBe(422);
   });
 });
