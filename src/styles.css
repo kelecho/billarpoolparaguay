@@ -56,14 +56,21 @@ h3 { font-size: 20px; font-weight: 700; }
 svg { flex-shrink: 0; }
 .app-shell { position: relative; isolation: isolate; min-height: 100vh; overflow-x: clip; }
 .floral-parallax { --page-parallax-y: 0px; position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 0 18%, #163d6709, transparent 46%), radial-gradient(ellipse at 100% 65%, #ce354309, transparent 42%); }
-.page-flower { position: absolute; overflow: visible; stroke: var(--art-blue); stroke-width: 1.05; transform: translate3d(0, var(--page-parallax-y), 0); }
-.page-flower-rings { opacity: .3; stroke-width: .8; }
-.page-petal-outline { stroke: var(--art-blue); opacity: .52; }
-.page-petal-vein { stroke: var(--red); stroke-width: .9; opacity: .56; }
-.page-petal-stitch { stroke: var(--art-blue); stroke-width: .75; opacity: .6; }
-.page-petal-dot { fill: var(--red); stroke: none; opacity: .62; }
-.page-flower-calyx { stroke: var(--red); stroke-width: .95; opacity: .48; }
-.page-flower-center { fill: var(--art-blue); stroke: var(--wash); stroke-width: 3; }
+.page-flower { position: absolute; overflow: visible; transform: translate3d(0, var(--page-parallax-y), 0); }
+/* Ñandutí: todo es hilo recto. La urdimbre es fina; los rayos principales, los abanicos y el borde pesan un poco más. */
+.nanduti-web { stroke: var(--art-blue); stroke-width: .7; stroke-linecap: round; }
+.web-spokes { opacity: .5; stroke-width: .55; }
+.web-ribs { opacity: .85; stroke-width: 1; }
+.web-braid { opacity: .6; stroke-width: .6; }
+.web-braid.web-red { opacity: .85; stroke-width: .7; }
+.web-fans { opacity: .8; }
+.web-capture { opacity: .75; stroke-width: .85; }
+.web-scallops { stroke-width: 1.1; }
+.web-hub { stroke-width: 1; }
+.web-red { stroke: var(--red); }
+.web-darning { opacity: .9; stroke-width: .6; }
+.web-picots { fill: var(--red); stroke: none; }
+.web-center { fill: var(--art-blue); stroke: none; }
 .page-flower-one { width: clamp(470px, 61vw, 820px); top: 1%; left: max(-260px, calc((100vw - 1500px) / 2 - 250px)); opacity: .13; }
 .page-flower-two { width: clamp(420px, 49vw, 690px); top: 37%; right: max(-230px, calc((100vw - 1500px) / 2 - 210px)); opacity: .11; transform: translate3d(0, calc(var(--page-parallax-y) * -.55), 0) rotate(14deg); }
 .page-flower-three { width: clamp(360px, 39vw, 550px); bottom: 2%; left: 24%; opacity: .075; transform: translate3d(0, calc(var(--page-parallax-y) * .4), 0) rotate(-12deg); }
@@ -132,9 +139,6 @@ main:focus { outline: none; }
 .nanduti-backdrop, .pool-weave { color: var(--art-blue); }
 .nanduti-backdrop { z-index: -1; inset: -12%; width: 124%; height: 124%; opacity: .18; pointer-events: none; transform: translate3d(calc(var(--parallax-x) * -.13), calc(var(--parallax-scroll) * .18), -75px) rotate(12deg); }
 .pool-weave { z-index: 0; inset: 0; width: 100%; height: 100%; pointer-events: none; transform-origin: 50% 50%; transform: translate3d(calc(var(--parallax-x) * .42), calc(var(--parallax-scroll) * -.54 + var(--parallax-y) * .38), -14px) rotate(calc(-9deg + var(--parallax-turn))); }
-.weave-rays { opacity: .34; }
-.weave-flowers { opacity: .86; }
-.weave-knots { opacity: .62; }
 .scene-orbit { z-index: 1; left: 50%; top: 51%; width: 76%; height: 29%; border: 1px solid var(--orbit); border-radius: 50%; transform-style: preserve-3d; }
 .scene-orbit-one { transform: translate3d(calc(-50% + var(--parallax-x) * -.3), calc(-50% + var(--parallax-scroll) * .29 - var(--parallax-y) * .3), -26px) rotateX(68deg) rotateZ(calc(-18deg + var(--parallax-turn) * -1.2)); }
 .scene-orbit-two { width: 95%; height: 46%; border-style: dashed; border-color: #ce35436e; transform: translate3d(calc(-50% + var(--parallax-x) * .44), calc(-50% + var(--parallax-scroll) * -.42 + var(--parallax-y) * .4), -48px) rotateX(68deg) rotateZ(calc(26deg + var(--parallax-turn))); }
