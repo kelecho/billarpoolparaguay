@@ -55,7 +55,7 @@ h2 { font-size: 44px; line-height: 1.05; letter-spacing: -.6px; }
 h3 { font-size: 20px; font-weight: 700; }
 svg { flex-shrink: 0; }
 .app-shell { position: relative; isolation: isolate; min-height: 100vh; overflow-x: clip; }
-.floral-parallax { --page-parallax-y: 0px; position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 0 18%, #163d6709, transparent 46%), radial-gradient(ellipse at 100% 65%, #ce354309, transparent 42%); }
+.floral-parallax { --page-parallax-y: 0px; position: absolute; z-index: -2; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 0 18%, #163d6709, transparent 46%), radial-gradient(ellipse at 100% 65%, #ce354309, transparent 42%); }
 .page-flower { position: absolute; overflow: visible; transform: translate3d(0, var(--page-parallax-y), 0); }
 /* Ñandutí: todo es hilo recto. La urdimbre es fina; los rayos principales, los abanicos y el borde pesan un poco más. */
 .nanduti-web { stroke: var(--art-blue); stroke-width: .7; stroke-linecap: round; }
@@ -77,7 +77,7 @@ svg { flex-shrink: 0; }
 .national-stripe { height: 6px; background: linear-gradient(90deg, var(--red) 0 33.33%, var(--on-fill) 33.33% 66.66%, var(--blue) 66.66%); }
 .club-header { max-width: 1360px; margin: auto; min-height: 110px; display: flex; align-items: center; justify-content: space-between; gap: 36px; padding: 20px 40px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; gap: 12px; align-items: center; text-decoration: none; flex-shrink: 0; }
-.brand img { width: 49px; height: 49px; }
+.brand img { width: 70px; height: 70px; object-fit: contain; }
 .brand-wordmark { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .brand-name { font-family: var(--display); font-size: 27px; line-height: .85; letter-spacing: -.4px; white-space: nowrap; }
 .brand-name span { color: var(--red-ink); }
@@ -88,9 +88,13 @@ svg { flex-shrink: 0; }
 .nav-item.active { background: var(--blue); color: var(--on-fill); }
 .header-country { display: flex; align-items: center; gap: 12px; font-size: 10px; line-height: 1.5; }
 .header-country strong { display: block; font-size: 11px; }
-.flag { display: block; width: 66px; height: 46px; flex-shrink: 0; object-fit: contain; transform-origin: left center; filter: drop-shadow(0 5px 5px #10192335); animation: flag-billow 2.6s ease-in-out infinite; }
-@keyframes flag-billow { 0%, 100% { transform: perspective(180px) rotateY(-9deg) rotateZ(-2deg); } 50% { transform: perspective(180px) rotateY(8deg) rotateZ(2deg); } }
-@media (prefers-reduced-motion: reduce) { .flag { animation: none; } }
+/* Telón patrio: comparte la escala y la transparencia del ñandutí de fondo. */
+.stadium-banner { position: absolute; z-index: -1; top: -100px; right: max(-115px, calc((100vw - 1440px) / 2 - 80px)); width: clamp(620px, 65vw, 970px); height: 510px; opacity: .23; pointer-events: none; mask-image: linear-gradient(90deg, transparent, #000 28%), linear-gradient(#000 55%, transparent); mask-composite: intersect; transform-origin: top right; animation: stadium-drift 14s ease-in-out infinite; }
+.stadium-banner > img { display: block; width: 100%; height: 100%; object-fit: fill; }
+.stadium-banner .stadium-lace { position: absolute; top: -20%; right: -8%; width: 72%; height: auto; opacity: .23; filter: brightness(0) invert(1); }
+[data-theme='dark'] .stadium-banner { opacity: .17; }
+@keyframes stadium-drift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(-6px, 5px, 0) rotate(-.5deg); } }
+@media (prefers-reduced-motion: reduce) { .stadium-banner { animation: none; } }
 .workspace { max-width: 1360px; margin: auto; }
 main { padding: 0 40px; }
 main:focus { outline: none; }
@@ -281,7 +285,7 @@ tbody tr:hover { background: var(--row-hover); }
 .club-footer { display: grid; grid-template-columns: 1fr 1.35fr 1fr; align-items: center; gap: 30px; border-top: 1px solid var(--field-line); margin-top: 60px; padding: 31px 0; }
 .footer-brand { display: flex; gap: 12px; align-items: center; font-family: var(--display); font-size: 22px; line-height: 1.1; }
 .footer-brand strong { font-weight: 400; color: var(--red-ink); }
-.footer-brand img { width: 42px; height: 42px; }
+.footer-brand img { width: 56px; height: 56px; object-fit: contain; }
 .footer-cities > span { font-family: var(--mono); color: var(--muted); font-size: 8px; letter-spacing: .5px; }
 .footer-cities p { font-size: 11px; line-height: 1.7; margin-top: 6px; color: var(--muted); }
 .footer-local { display: flex; align-items: flex-end; flex-direction: column; gap: 9px; font-size: 9px; color: var(--muted); }
@@ -465,7 +469,7 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 [data-theme='dark'] .leader-row .score-track i { background: var(--red-ink); }
 [data-theme='dark'] .scoreboard, [data-theme='dark'] .profile-stats, [data-theme='dark'] .podium-1 a { background: linear-gradient(160deg, #1d4d80, #143a63); box-shadow: inset 0 1px #ffffff14, 0 14px 40px #0008; }
 [data-theme='dark'] .tournament-card, [data-theme='dark'] .table-wrap, [data-theme='dark'] .panel, [data-theme='dark'] .player-card, [data-theme='dark'] .podium-step a { box-shadow: 0 10px 30px #0005; }
-[data-theme='dark'] .brand img, [data-theme='dark'] .footer-brand img { border-radius: 24%; box-shadow: 0 0 0 1px #ffffff1f; }
+[data-theme='dark'] .brand img, [data-theme='dark'] .footer-brand img { filter: drop-shadow(0 2px 3px #ffffff24); }
 [data-theme='dark'] dialog { box-shadow: 0 25px 90px #000a; }
 [data-theme='dark'] dialog::backdrop { background: #040a12b8; }
 [data-theme='dark'] .toast { background: #1d4d80; box-shadow: 0 7px 30px #0009; }
@@ -503,14 +507,12 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   .nanduti-backdrop { inset: -8%; width: 116%; height: 116%; }
   .national-stripe { height: 5px; }
   .club-header { padding: 20px 20px 0; min-height: auto; flex-wrap: wrap; gap: 20px; }
-  .brand img { width: 41px; height: 41px; }
+  .brand img { width: 54px; height: 54px; }
   .brand-name { font-size: 25px; }
   .brand-location { font-size: 8px; letter-spacing: 2.3px; }
   .header-end { margin-left: auto; gap: 12px; }
-  .header-country { display: flex; font-size: 10px; gap: 7px; }
   .theme-toggle { width: 36px; height: 36px; }
-  .header-country strong { font-size: 11px; }
-  .flag { width: 46px; height: 32px; }
+  .stadium-banner { top: -10px; right: -110px; width: 600px; height: 440px; opacity: .16; }
   .club-header nav { order: 3; display: grid; grid-template-columns: .95fr 1.12fr .95fr 1.45fr; width: 100%; gap: 3px; }
   .nav-item { border-radius: 4px 4px 0 0; min-width: 0; min-height: 44px; justify-content: center; padding: 11px 5px; gap: 5px; font-size: 11px; }
   .nav-item svg { width: 15px; }
@@ -626,8 +628,7 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 @media (max-width: 390px) {
   main { padding: 0 15px; }
   .club-header { padding-left: 15px; padding-right: 15px; }
-  .header-country > span:last-child { display: none; }
-  .flag { width: 38px; height: 27px; }
+  .stadium-banner { right: -125px; }
   .nav-item { padding: 11px 6px; gap: 4px; font-size: 11px; }
   .hero h1 { font-size: 59px; }
   .hero { grid-template-columns: minmax(0, 1fr) 115px; }

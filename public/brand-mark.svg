@@ -156,7 +156,7 @@
 <linearGradient id="gloss" x2=".6" y2="1"><stop stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
 <linearGradient id="fold"><stop stop-color="#03182e" stop-opacity=".2"/><stop offset=".45" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#03182e" stop-opacity=".12"/></linearGradient>
 <filter id="shadow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dy="10" stdDeviation="9" flood-color="#071727" flood-opacity=".28"/></filter>
-</defs><rect width="512" height="512" rx="112" fill="#f0f3f3"/><g filter="url(#shadow)">
+</defs><g filter="url(#shadow)">
 <path d="M115 95C220 65 340 130 472 55V124C340 199 220 134 115 164Z" fill="#d52b1e"/>
 <path d="M115 164C220 134 340 199 472 124V193C340 268 220 203 115 233Z" fill="#fff"/>
 <path d="M115 233C220 203 340 268 472 193V262C340 337 220 272 115 302Z" fill="#0038a8"/>

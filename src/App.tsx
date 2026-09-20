@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, CalendarDays, Check, Download, Flag, Lock, Moon, Settings2, Smartphone, Sun, Trophy, Users, WifiOff, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import FloralParallax from './FloralParallax';
+import NandutiWeb from './NandutiWeb';
 import { PasswordForm } from './components/AccountPanel';
 import InstallGuide from './components/InstallGuide';
 import LoginForm from './components/LoginForm';
@@ -114,11 +115,15 @@ export default function App() {
   return (
     <div className="app-shell">
       <FloralParallax />
+      <div className="stadium-banner" aria-hidden="true">
+        <img src="/flag.svg" alt="" />
+        <NandutiWeb className="stadium-lace" spokes={48} sector={4} lattice={[17, 11, 5]} />
+      </div>
       <a className="skip-link" href="#main-content" onClick={e => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
       <div className="national-stripe" aria-hidden="true" />
       <header className="club-header">
         <a className="brand" href={pageHref('Ranking')} aria-label="BillarPool Paraguay, inicio">
-          <img src="/icon.svg" alt="" /><span className="brand-wordmark"><span className="brand-name">BILLAR<span>POOL</span></span><span className="brand-location">PARAGUAY</span></span>
+          <img src="/brand-mark.svg" alt="" /><span className="brand-wordmark"><span className="brand-name">BILLAR<span>POOL</span></span><span className="brand-location">PARAGUAY</span></span>
         </a>
         <nav aria-label="Navegación principal" className={canEdit ? undefined : 'nav-public'}>
           {NAV.filter(item => item.name !== 'Configuración' || canEdit).map(({ name, icon: Icon }) => (
@@ -126,7 +131,7 @@ export default function App() {
           ))}
         </nav>
         <div className="header-end">
-          <div className="header-country"><img className="flag" src="/flag.svg" alt="Bandera del Paraguay" /><span>Hecho de partidas.<strong>Jugado en Paraguay.</strong></span></div>
+          <div className="header-country"><span>Hecho de partidas.<strong>Jugado en Paraguay.</strong></span></div>
           <button className="theme-toggle" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} aria-pressed={theme === 'dark'}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -154,7 +159,7 @@ export default function App() {
           </>}
 
           <footer className="club-footer">
-            <div className="footer-brand"><img src="/icon.svg" alt="" /><span>De acá.<br /><strong>De nuestra mesa.</strong></span></div>
+            <div className="footer-brand"><img src="/brand-mark.svg" alt="" /><span>De acá.<br /><strong>De nuestra mesa.</strong></span></div>
             <div className="footer-cities">
               {cities.length ? <><span>EL POOL NOS ENCUENTRA EN</span><p>{cities.slice(0, 6).join(' · ')}{cities.length > 6 ? ` y ${cities.length - 6} ciudades más` : ''}</p></> : <p>El próximo encuentro empieza con vos.</p>}
             </div>
