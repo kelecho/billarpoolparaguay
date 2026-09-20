@@ -370,3 +370,68 @@ test('agrega el banner del evento sin recortarlo, lo muestra en la tarjeta y el 
   await finished.getByRole('button', { name: 'Guardar banner' }).click();
   await expect(finished.getByRole('img', { name: 'Banner de Encuentro del Sur' })).toHaveCount(0);
 });
+
+test.describe('instalación en el dispositivo', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+
+  test('guía desde el pie de página para orientar a cualquier teléfono', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Instalar la app' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Instalar en tu dispositivo' });
+    await dialog.getByRole('tab', { name: 'iPhone o iPad' }).click();
+    await expect(dialog.getByRole('listitem')).toHaveCount(4);
+    await expect(dialog).toContainText('Agregar a inicio');
+    await expect(dialog).toContainText('Safari');
+    await dialog.getByRole('tab', { name: 'Android' }).click();
+    await expect(dialog).toContainText('Instalar app');
+    await dialog.getByRole('tab', { name: 'Computadora' }).click();
+    await expect(dialog).toContainText('barra de direcciones');
+  });
+
+  test('en iPhone ofrece la guía paso a paso y recuerda si se cierra el aviso', async ({ browser }) => {
+    const context = await browser.newContext({ userAgent: IPHONE, viewport: { width: 390, height: 844 }, hasTouch: true });
+    const page = await context.newPage();
+    await page.goto('/');
+    const banner = page.locator('.install-banner');
+    await expect(banner).toContainText('Llevá el ranking en tu celular');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await banner.getByRole('button', { name: 'Cómo instalar' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Instalar en tu dispositivo' });
+    await expect(dialog.getByRole('tab', { name: 'iPhone o iPad' })).toHaveAttribute('aria-selected', 'true');
+    await expect(dialog.getByRole('button', { name: 'Instalar ahora' })).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await banner.getByRole('button', { name: 'Cerrar el aviso de instalación' }).click();
+    await expect(banner).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'El ranking', exact: true })).toBeVisible();
+    await expect(banner).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Instalar la app' })).toBeVisible();
+    await context.close();
+  });
+
+  test('instala de un toque cuando el navegador lo ofrece y deja de sugerirlo una vez instalada', async ({ page }, testInfo) => {
+    await page.goto('/');
+    // Chrome avisa con este evento cuando la página cumple los requisitos; acá se lo simula.
+    const offer = (outcome: string) => page.evaluate(result => {
+      const event = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), { prompt: async () => { (window as any).prompted = ((window as any).prompted ?? 0) + 1; }, userChoice: Promise.resolve({ outcome: result }) });
+      window.dispatchEvent(event);
+    }, outcome);
+    const mobile = testInfo.project.name === 'mobile';
+    const start = async () => mobile ? page.locator('.install-banner').getByRole('button', { name: 'Instalar', exact: true }).click() : (await page.getByRole('button', { name: 'Instalar la app' }).click(), page.getByRole('dialog').getByRole('button', { name: 'Instalar ahora' }).click());
+
+    // Si la persona rechaza el diálogo del navegador, queda la guía a mano.
+    await offer('dismissed');
+    await start();
+    await expect(page.getByRole('dialog', { name: 'Instalar en tu dispositivo' })).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cerrar', exact: true }).click();
+
+    await offer('accepted');
+    await start();
+    await expect(page.getByRole('status')).toContainText('Pool Paraguay quedó instalada');
+    expect(await page.evaluate(() => (window as any).prompted)).toBe(2);
+    await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
+    await expect(page.getByRole('button', { name: 'Instalar la app' })).toHaveCount(0);
+    await expect(page.locator('.install-banner')).toHaveCount(0);
+  });
+});

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, CalendarDays, Check, Download, Flag, Lock, Moon, Settings2, Sun, Trophy, Users, WifiOff } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, Download, Flag, Lock, Moon, Settings2, Smartphone, Sun, Trophy, Users, WifiOff, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import FloralParallax from './FloralParallax';
 import { PasswordForm } from './components/AccountPanel';
+import InstallGuide from './components/InstallGuide';
 import LoginForm from './components/LoginForm';
 import ModalFrame from './components/ModalFrame';
 import Field from './components/Field';
@@ -20,6 +21,7 @@ import TournamentsPage from './pages/TournamentsPage';
 import { downloadJSON } from './storage';
 import { pageHref, useHashRoute, type Page } from './useHashRoute';
 import { ROLE_LABELS } from './roles';
+import { useInstall } from './useInstall';
 import { useStore } from './useStore';
 import { useTheme } from './useTheme';
 
@@ -31,6 +33,7 @@ type Modal =
   | { kind: 'reopen'; tournament: Tournament }
   | { kind: 'replace'; state: State }
   | { kind: 'login' }
+  | { kind: 'install' }
   | null;
 
 const NAV = [{ name: 'Ranking', icon: Trophy }, { name: 'Jugadores', icon: Users }, { name: 'Torneos', icon: CalendarDays }, { name: 'Configuración', icon: Settings2 }] as const;
@@ -42,6 +45,7 @@ export default function App() {
   const { state, canEdit } = store;
   const { route, navigate } = useHashRoute();
   const { theme, toggle: toggleTheme } = useTheme();
+  const app = useInstall();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
@@ -84,6 +88,11 @@ export default function App() {
   async function exportBackup() {
     try { downloadJSON(await store.exportContent(), `pool-paraguay-${localDate()}.json`); } catch (e) { setError(errorMessage(e)); }
   }
+  /** Con aviso del navegador se instala de un toque; si no, o si la persona lo rechaza, se muestra la guía. */
+  async function installApp() {
+    if (app.canPrompt && await app.install()) { setModal(null); setNotice('Listo: Pool Paraguay quedó instalada.'); }
+    else open({ kind: 'install' });
+  }
   async function share(title: string) {
     const url = window.location.href;
     try {
@@ -99,7 +108,7 @@ export default function App() {
   // La contraseña la puso el superadministrador: antes de cualquier otra cosa, la persona elige la suya.
   const mustChangePassword = Boolean(store.user?.mustChangePassword);
   const modalTitle = mustChangePassword ? 'Elegí tu contraseña' : modal
-    ? { player: modal.kind === 'player' && modal.player ? 'Editar jugador' : 'Agregar jugador', tournament: modal.kind === 'tournament' && modal.tournament ? 'Editar torneo' : 'Crear torneo', results: modal.kind === 'results' ? modal.tournament.name : '', reopen: 'Corregir resultados', replace: store.remote ? 'Reemplazar datos publicados' : 'Reemplazar datos locales', login: 'Iniciar sesión' }[modal.kind]
+    ? { player: modal.kind === 'player' && modal.player ? 'Editar jugador' : 'Agregar jugador', tournament: modal.kind === 'tournament' && modal.tournament ? 'Editar torneo' : 'Crear torneo', results: modal.kind === 'results' ? modal.tournament.name : '', reopen: 'Corregir resultados', replace: store.remote ? 'Reemplazar datos publicados' : 'Reemplazar datos locales', login: 'Iniciar sesión', install: 'Instalar en tu dispositivo' }[modal.kind]
     : profile ? 'Perfil del jugador' : shownTournament?.name;
 
   return (
@@ -126,6 +135,11 @@ export default function App() {
 
       <div className="workspace">
         <main id="main-content" tabIndex={-1}>
+          {app.suggest && <div className="install-banner">
+            <Smartphone size={18} aria-hidden="true" /><span><strong>Llevá el ranking en tu celular.</strong> Se instala en un minuto, sin tienda de aplicaciones.</span>
+            <button className="button" onClick={() => void installApp()}>{app.canPrompt ? 'Instalar' : 'Cómo instalar'}</button>
+            <button className="icon-button" onClick={app.dismiss} aria-label="Cerrar el aviso de instalación"><X size={16} /></button>
+          </div>}
           {state.demo && <div className="demo-banner"><Flag size={16} /><span>Estás explorando datos de ejemplo.</span><a href={pageHref('Configuración')}>Empezar con mis datos <ArrowUpRight size={14} /></a></div>}
           {store.offlineSince && <div className="demo-banner"><WifiOff size={16} /><span>Sin conexión. Mostramos el ranking guardado el {dateLabel(store.offlineSince.slice(0, 10))}.</span></div>}
           {store.storageBlocked && <p role="alert" className="error">No se pudo leer el respaldo local. Los cambios están bloqueados para protegerlo. Exportá los datos originales desde Configuración.</p>}
@@ -145,6 +159,7 @@ export default function App() {
               {cities.length ? <><span>EL POOL NOS ENCUENTRA EN</span><p>{cities.slice(0, 6).join(' · ')}{cities.length > 6 ? ` y ${cities.length - 6} ciudades más` : ''}</p></> : <p>El próximo encuentro empieza con vos.</p>}
             </div>
             <div className="footer-local">
+              {!app.installed && <button className="text-button" onClick={() => open({ kind: 'install' })}><Smartphone size={14} />Instalar la app</button>}
               {store.remote
                 ? store.user ? <span className="local-badge"><span />{store.user.name} · {ROLE_LABELS[store.user.role]}</span> : <button className="text-button" onClick={() => open({ kind: 'login' })}><Lock size={14} />Iniciar sesión</button>
                 : <><span className="local-badge"><span />Guardado en este dispositivo</span><span>{state.demo ? 'Datos de demostración' : 'Registro local'} · Sin sincronización</span></>}
@@ -169,6 +184,7 @@ export default function App() {
           {modal?.kind === 'player' && <PlayerForm defaultCategory={modal.category} state={state} player={modal.player} submit={dispatch} />}
           {modal?.kind === 'tournament' && <TournamentForm state={state} tournament={modal.tournament} submit={dispatch} />}
           {modal?.kind === 'results' && <ResultsForm tournament={modal.tournament} state={state} submit={dispatch} />}
+          {modal?.kind === 'install' && <InstallGuide platform={app.platform} canPrompt={app.canPrompt} onInstall={() => void installApp()} />}
           {modal?.kind === 'login' && <LoginForm submit={(email, password) => void run(() => store.login(email, password), 'Sesión iniciada. Ya podés cargar resultados.')} />}
           {modal?.kind === 'reopen' && (
             <form className="form-stack" onSubmit={e => { e.preventDefault(); dispatch({ type: 'results.reopen', tournamentId: modal.tournament.id, reason: String(new FormData(e.currentTarget).get('reason')) }); }}>

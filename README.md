@@ -36,7 +36,7 @@ npm run preview
 - Categoría asignada al jugador: sumar puntos no genera ascensos. Los registros anteriores conservan su categoría al migrar. Cambiar la puntuación no altera resultados históricos; las reglas de traspaso quedan pendientes.
 - Banner opcional del evento desde «Crear torneo» o «Editar torneo» (JPG, PNG o WebP de hasta 8 MB). No se recorta —sirve un afiche vertical o una imagen apaisada—: se reduce a 1600 px de lado mayor y se guarda como JPEG de hasta unos 300 kB. Se ve completo dentro del torneo y recortado a lo ancho en la tarjeta. Con los resultados publicados el torneo ya no se edita, pero el banner se cambia o se quita desde el propio torneo.
 - Exportación y restauración de respaldos JSON con validación y confirmación antes de reemplazar datos.
-- Instalación como PWA y uso sin conexión después de una primera carga de producción.
+- Instalación como PWA y uso sin conexión después de una primera carga de producción. En el celular, a quien todavía no la instaló se le ofrece arriba de todo: Android instala de un toque con el diálogo del navegador; iPhone no avisa nunca, así que se abre una guía paso a paso (Safari → Compartir → «Agregar a inicio»). La guía muestra también Android y computadora, para que una persona pueda orientar a otra, y queda siempre a mano en «Instalar la app», al pie. El aviso se puede cerrar y no vuelve a aparecer; ya instalada, desaparecen el aviso y el enlace.
 
 ## Dos modos de datos
 
