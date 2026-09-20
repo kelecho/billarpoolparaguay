@@ -122,7 +122,7 @@ Para pasar datos del modo local al compartido: exportar el respaldo en el navega
 
 ## Administrar un torneo
 
-1. En **Torneos → Crear torneo**, elegir categoría, disciplina, fecha, sede, partidas necesarias para ganar cada partido y formato: eliminación directa o doble eliminación.
+1. En **Torneos → Crear torneo**, elegir categoría, disciplina, fecha, sede, partidas necesarias para ganar cada partido y formato: eliminación directa, doble eliminación o liga todos contra todos.
 2. Abrir **Administrar torneo** e inscribir jugadores de esa categoría. Se puede crear una ficha desde el mismo torneo y luego inscribirla.
 3. Elegir **Sorteo aleatorio**, **Cabezas de serie por ranking** o **Cabezas de serie en orden manual**. El orden manual se modifica con las flechas de los inscriptos; el cuadro distribuye las cabezas de serie y los pases libres.
 4. Realizar el sorteo inicial. El sorteo aleatorio se resuelve y se guarda al instante, con el azar de siempre, y después se revela con suspenso: cada lugar del cuadro es una bola numerada del bolillero que gira mientras pasan los nombres, y van frenando de a una hasta que quedan a la vista todos los cruces (unos 7 segundos con 16 inscriptos; se puede saltar). La animación no decide nada: muestra exactamente lo guardado. Cualquiera puede volver a verla desde «Ver el sorteo otra vez». Con cabezas de serie no hay revelación, porque los cruces ya están dichos, y tampoco para quien pidió menos movimiento en su sistema. Los cruces quedan guardados y se pueden consultar o compartir. Antes del primer resultado, **Volver a sortear** reemplaza los cruces y la programación; **Quitar fixture** permite corregir las inscripciones.
@@ -130,6 +130,14 @@ Para pasar datos del modo local al compartido: exportar el respaldo en el navega
 6. Publicar los resultados del torneo completo para sumar puntos. Para corregir un torneo publicado, reabrirlo con un motivo; se retiran sus puntos pero se conservan los partidos. Si cambia un ganador con resultados posteriores, quitar primero los resultados dependientes, desde la final hacia atrás.
 
 ### Formatos
+
+**Liga todos contra todos.** Admite entre 2 y 32 jugadores, con una vuelta o ida y vuelta. Cada pareja juega una vez por vuelta; las jornadas se generan por rotación, con un descanso por jornada cuando los inscriptos son impares. El descanso no cuenta como victoria ni suma puntos. El orden aleatorio, por ranking o de inscripción organiza las jornadas, sin eliminar jugadores.
+
+- La tabla muestra partidos jugados, ganados y perdidos, partidas a favor y en contra, diferencia y puntos de liga: 3 por victoria y 0 por derrota. Se ordena por puntos, diferencia de partidas y partidas ganadas; una igualdad total comparte puesto (y puntos del ranking), incluso en el primer lugar.
+- La fecha del torneo marca el inicio. Cada encuentro admite fecha, mesa y hora; no se pueden cargar resultados antes de la fecha asignada. Las jornadas se consultan con el selector y las flechas, y los encuentros pueden disputarse en distinto orden.
+- Los marcadores recalculan la tabla inmediatamente. Publicar exige completar todos los encuentros; entonces se asignan los puntos del ranking según el puesto final y las reglas de Configuración. Los puntos internos de la liga no se suman directamente al ranking.
+- Las vueltas y el formato quedan fijos al generar el fixture. Se puede volver a generar antes del primer resultado. Como los encuentros no dependen unos de otros, se permite corregir cualquier jornada; un torneo publicado primero debe reabrirse.
+- En modo compartido, `migrations/0008_league.sql` agrega las vueltas y la fecha de cada partido. Se aplica con las demás migraciones al desplegar; el modo local guarda ambos datos en sus respaldos.
 
 **Doble eliminación con fase final.** Quien pierde en la llave de ganadores sigue en la de perdedores; la segunda derrota elimina. Se juega así hasta que quedan los clasificados que se eligieron al crear el torneo (2, 4, 8, 16 o 32, como máximo la mitad del cuadro): la mitad llega invicta y la otra mitad con una derrota. Ellos definen el torneo por eliminación directa, a partido único y con las mismas partidas para ganar que el resto. Con 2 clasificados es la doble eliminación completa: el invicto y el ganador de perdedores juegan una gran final única, sin revancha.
 
@@ -178,4 +186,4 @@ Si Playwright no puede descargar su navegador, `PLAYWRIGHT_CHANNEL=chrome` usa e
 
 ## Próxima etapa
 
-Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. Los marcadores llegan por consulta periódica; si hiciera falta que aparezcan al instante, el paso siguiente son WebSockets con Durable Objects. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como grupos o una gran final con revancha.
+Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. Los marcadores llegan por consulta periódica; si hiciera falta que aparezcan al instante, el paso siguiente son WebSockets con Durable Objects. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, una fase de grupos previa a las eliminatorias.

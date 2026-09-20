@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, Search, X } from 'lucide-react';
 import type { Action, State, Tournament } from '../domain';
-import { MAX_ENTRANTS } from '../fixture';
+import { entrantLimit } from '../fixture';
 import Avatar from './Avatar';
 
 type Props = { tournament: Tournament; state: State; busy: boolean; onCreatePlayer: () => void; submit: (action: Action) => Promise<boolean> };
@@ -9,6 +9,7 @@ type Props = { tournament: Tournament; state: State; busy: boolean; onCreatePlay
 export default function TournamentRegistration({ tournament: t, state, busy, submit, onCreatePlayer }: Props) {
   const [query, setQuery] = useState('');
   const registered = t.registered ?? [];
+  const limit = entrantLimit(t.format);
   const eligible = state.players.filter(p => p.category === t.category && !registered.includes(p.id) && `${p.name} ${p.city} ${p.club}`.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'))).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   const save = (playerIds: string[]) => void submit({ type: 'registration.save', tournamentId: t.id, playerIds });
   const move = (index: number, delta: number) => {
@@ -18,13 +19,13 @@ export default function TournamentRegistration({ tournament: t, state, busy, sub
   };
   return (
     <section className="registration-panel">
-      <div><h3>Inscripciones · {registered.length}/{MAX_ENTRANTS}</h3><p className="muted small">Solo jugadores de {t.category}. Podés elegir jugadores existentes o crear su ficha y luego inscribirlos.</p></div>
+      <div><h3>Inscripciones · {registered.length}/{limit}</h3><p className="muted small">Solo jugadores de {t.category}. Podés elegir jugadores existentes o crear su ficha y luego inscribirlos.</p></div>
       <div className="registration-columns">
         <div>
           <div className="fixture-title"><h4>Jugadores disponibles</h4><button className="text-button" disabled={busy} onClick={onCreatePlayer}><Plus size={15} />Crear jugador</button></div>
           <label className="search"><Search size={16} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar jugador…" aria-label="Buscar jugador para inscribir" /></label>
           <ul className="registration-list">
-            {eligible.map(p => <li key={p.id}><Avatar name={p.name} photo={p.photo} /><span><strong>{p.name}</strong><small>{p.city}</small></span><button className="icon-button" disabled={busy || registered.length >= MAX_ENTRANTS} aria-label={`Inscribir a ${p.name}`} onClick={() => save([...registered, p.id])}><Plus size={17} /></button></li>)}
+            {eligible.map(p => <li key={p.id}><Avatar name={p.name} photo={p.photo} /><span><strong>{p.name}</strong><small>{p.city}</small></span><button className="icon-button" disabled={busy || registered.length >= limit} aria-label={`Inscribir a ${p.name}`} onClick={() => save([...registered, p.id])}><Plus size={17} /></button></li>)}
           </ul>
           {!eligible.length && <p className="muted small">No hay más jugadores disponibles con este filtro.</p>}
         </div>

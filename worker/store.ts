@@ -6,9 +6,9 @@ type Rows = Record<(typeof TABLES)[number]['name'], Row[]>;
 /** Primero las tablas referidas: se inserta en este orden y se borra en el inverso. */
 const TABLES = [
   { name: 'players', key: ['id'], columns: ['name', 'city', 'club', 'initial_points', 'category', 'photo'], order: 'rowid' },
-  { name: 'tournaments', key: ['id'], columns: ['name', 'date', 'venue', 'discipline', 'category', 'race_to', 'draw', 'format', 'qualifiers', 'banner', 'third_place', 'final_rematch'], order: 'rowid' },
+  { name: 'tournaments', key: ['id'], columns: ['name', 'date', 'venue', 'discipline', 'category', 'race_to', 'draw', 'format', 'qualifiers', 'banner', 'third_place', 'final_rematch', 'league_rounds'], order: 'rowid' },
   { name: 'registrations', key: ['tournament_id', 'player_id'], columns: ['position', 'seed'], order: 'tournament_id, position' },
-  { name: 'matches', key: ['tournament_id', 'id'], columns: ['round', 'idx', 'bracket', 'score_a', 'score_b', 'table_name', 'time'], order: "tournament_id, CASE bracket WHEN 'P' THEN 1 WHEN 'F' THEN 2 WHEN 'T' THEN 3 ELSE 0 END, round, idx" },
+  { name: 'matches', key: ['tournament_id', 'id'], columns: ['round', 'idx', 'bracket', 'score_a', 'score_b', 'table_name', 'time', 'date'], order: "tournament_id, CASE bracket WHEN 'P' THEN 1 WHEN 'F' THEN 2 WHEN 'T' THEN 3 ELSE 0 END, round, idx" },
   { name: 'results', key: ['tournament_id', 'player_id'], columns: ['position', 'place', 'points'], order: 'tournament_id, position' },
 ] as const;
 
@@ -22,9 +22,9 @@ function flatten(state: State): Rows {
   const each = <T>(rows: (t: Tournament) => T[]) => state.tournaments.flatMap(rows);
   return {
     players: state.players.map(p => ({ id: p.id, name: p.name, city: p.city, club: p.club, initial_points: p.initialPoints, category: p.category ?? null, photo: p.photo ?? null })),
-    tournaments: state.tournaments.map(t => ({ id: t.id, name: t.name, date: t.date, venue: t.venue, discipline: t.discipline, category: t.category ?? null, race_to: t.raceTo ?? null, draw: t.fixture?.draw ?? null, format: t.format ?? null, qualifiers: t.qualifiers ?? null, banner: t.banner ?? null, third_place: t.thirdPlace ? 1 : null, final_rematch: t.finalRematch ? 1 : null })),
+    tournaments: state.tournaments.map(t => ({ id: t.id, name: t.name, date: t.date, venue: t.venue, discipline: t.discipline, category: t.category ?? null, race_to: t.raceTo ?? null, draw: t.fixture?.draw ?? null, format: t.format ?? null, qualifiers: t.qualifiers ?? null, banner: t.banner ?? null, third_place: t.thirdPlace ? 1 : null, final_rematch: t.finalRematch ? 1 : null, league_rounds: t.leagueRounds ?? null })),
     registrations: each(t => (t.registered ?? []).map((player_id, position) => ({ tournament_id: t.id, player_id, position, seed: t.fixture ? t.fixture.seeds.indexOf(player_id) : null }))),
-    matches: each(t => (t.fixture?.matches ?? []).map(m => ({ tournament_id: t.id, id: m.id, round: m.round, idx: m.index, bracket: m.bracket ?? null, score_a: m.scoreA ?? null, score_b: m.scoreB ?? null, table_name: m.table ?? null, time: m.time ?? null }))),
+    matches: each(t => (t.fixture?.matches ?? []).map(m => ({ tournament_id: t.id, id: m.id, round: m.round, idx: m.index, bracket: m.bracket ?? null, score_a: m.scoreA ?? null, score_b: m.scoreB ?? null, table_name: m.table ?? null, time: m.time ?? null, date: m.date ?? null }))),
     results: each(t => t.results.map((r, position) => ({ tournament_id: t.id, player_id: r.playerId, position, place: r.place, points: r.points }))),
   };
 }
@@ -71,12 +71,13 @@ export async function load(db: D1Database): Promise<{ state: State; version: num
     tournaments: tournaments.map(t => {
       const entrants = registrations.get(t.id) ?? [];
       const played = matches.get(t.id);
-      const seeds: (string | null)[] = Array(2 ** Math.ceil(Math.log2(Math.max(entrants.length, 1)))).fill(null);
+      const size = t.format === 'league' ? entrants.length + entrants.length % 2 : 2 ** Math.ceil(Math.log2(Math.max(entrants.length, 1)));
+      const seeds: (string | null)[] = Array(size).fill(null);
       for (const entrant of entrants) if (entrant.seed !== null) seeds[entrant.seed] = entrant.player_id;
       return present({
-        id: t.id, name: t.name, date: t.date, venue: t.venue, discipline: t.discipline, category: t.category, raceTo: t.race_to, format: t.format, qualifiers: t.qualifiers, banner: t.banner, thirdPlace: t.third_place ? true : null, finalRematch: t.final_rematch ? true : null,
+        id: t.id, name: t.name, date: t.date, venue: t.venue, discipline: t.discipline, category: t.category, raceTo: t.race_to, format: t.format, qualifiers: t.qualifiers, banner: t.banner, thirdPlace: t.third_place ? true : null, finalRematch: t.final_rematch ? true : null, leagueRounds: t.league_rounds,
         registered: entrants.map(e => e.player_id),
-        fixture: played ? present({ draw: t.draw, seeds, matches: played.map(m => present({ id: m.id, round: m.round, index: m.idx, bracket: m.bracket, scoreA: m.score_a, scoreB: m.score_b, table: m.table_name, time: m.time })) }) : null,
+        fixture: played ? present({ draw: t.draw, seeds, matches: played.map(m => present({ id: m.id, round: m.round, index: m.idx, bracket: m.bracket, scoreA: m.score_a, scoreB: m.score_b, table: m.table_name, time: m.time, date: m.date })) }) : null,
         results: (results.get(t.id) ?? []).map(r => ({ playerId: r.player_id, place: r.place, points: r.points })),
       });
     }),

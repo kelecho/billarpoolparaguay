@@ -210,8 +210,8 @@ main:focus { outline: none; }
 .ranking-caption > span:last-child { font-family: var(--mono); font-size: 10px; align-self: center; }
 .ranking-section { margin-bottom: 48px; }
 .filters { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 16px; }
-.category-tabs { display: flex; gap: 3px; align-items: center; }
-.category-tabs button { min-height: 39px; padding: 9px 15px; font-size: 12px; font-weight: 600; border-radius: 4px; color: var(--muted); }
+.category-tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.category-tabs button { min-height: 52px; padding: 12px 20px; font-size: 16px; font-weight: 700; border-radius: 6px; color: var(--ink); }
 .category-tabs button:hover { background: var(--hover); color: var(--ink); }
 .category-tabs button.selected { color: var(--on-fill); background: var(--blue); }
 .search { display: flex; gap: 9px; align-items: center; padding: 0 12px; background: transparent; border: 1px solid var(--field-line); border-radius: 5px; color: var(--muted); }
@@ -353,9 +353,21 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 .podium-points { font-family: var(--mono); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 10px; }
 .podium-points small { font-size: 10px; }
 .podium-meta { font-size: 11px; color: var(--muted); }
-.filter-groups { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.discipline-tabs button { border: 1px solid var(--line); background: var(--paper); }
+.filter-groups { display: flex; flex: 1 1 650px; flex-direction: column; gap: 14px; min-width: 0; }
+.discipline-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.discipline-tabs button { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 76px; border: 1px solid var(--line); background: var(--paper); white-space: nowrap; }
 .discipline-tabs button.selected { border-color: var(--red); background: var(--red); }
+.discipline-icon { position: relative; display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; }
+.discipline-ball { --ball-color: #151d29; position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 30% 22%, #ffffffb0, transparent 28%), radial-gradient(circle at 38% 32%, transparent 35%, #0009 100%), var(--ball-color); box-shadow: inset 0 0 0 1px #ffffff50, inset -2px -3px 4px #0005, 0 3px 5px #0004; }
+.discipline-ball-9 { --ball-color: #e4b528; }
+.discipline-ball-10 { --ball-color: #2468b4; }
+.discipline-ball-9, .discipline-ball-10 { background: radial-gradient(circle at 30% 22%, #ffffffb0, transparent 28%), radial-gradient(circle at 38% 32%, transparent 35%, #0008 100%), linear-gradient(#fffefa 0 22%, var(--ball-color) 22% 78%, #fffefa 78%); }
+.discipline-ball > b { display: grid; place-items: center; width: 48%; height: 48%; border-radius: 50%; background: #fffefa; color: #111923; font-family: 'Figtree', sans-serif; font-size: 14px; font-weight: 700; line-height: 1; box-shadow: inset 0 0 2px #0003; }
+.discipline-icon-group .discipline-ball { position: absolute; width: 29px; height: 29px; }
+.discipline-icon-group .discipline-ball > b { font-size: 10px; }
+.discipline-icon-group .discipline-ball-9 { left: 0; top: 18px; }
+.discipline-icon-group .discipline-ball-10 { right: 0; top: 18px; }
+.discipline-icon-group .discipline-ball-8 { left: 10px; top: 1px; }
 .filter-note { margin: -4px 0 14px; font-size: 12px; color: var(--muted); }
 .city-filter { width: auto; min-width: 200px; min-height: 42px; font-size: 12px; background: transparent; }
 .player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
@@ -539,8 +551,9 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   .ranking-caption { flex-direction: column; gap: 7px; font-size: 12px; margin-bottom: 20px; }
   .ranking-caption > span:last-child { align-self: start; font-size: 10px; }
   .filters { gap: 13px; }
-  .category-tabs { width: 100%; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-  .category-tabs button { font-size: 12px; min-height: 40px; padding: 8px 11px; white-space: nowrap; flex-shrink: 0; }
+  .category-tabs { width: 100%; gap: 8px; }
+  .category-tabs button { font-size: 15px; min-height: 52px; padding: 10px; }
+  .discipline-tabs button { flex-direction: column; gap: 6px; min-height: 96px; padding: 10px 6px; }
   .search { width: 100%; }
   .search input { width: 100%; }
   .table-wrap { border-radius: 5px; }
@@ -620,7 +633,7 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   .hero .eyebrow { font-size: 9px; letter-spacing: 0; }
   .hero-actions { gap: 13px; }
   .hero-actions .text-button { font-size: 11px; }
-  .category-tabs button { font-size: 11px; padding: 8px 9px; }
+  .category-tabs button { padding-left: 7px; padding-right: 7px; }
   th, td { padding-left: 6px; padding-right: 6px; }
   .player-link strong { font-size: 12px; }
   .category { font-size: 10px; }
@@ -640,14 +653,17 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
-/* Escudos de categoría: pines esmaltados con borde de oro; el nivel se distingue por esmalte, número, estrellas y nombre. */
-.category-badge { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-size: 11px; font-weight: 600; }
-.category-icon { display: block; width: 30px; height: 35px; flex-shrink: 0; object-fit: contain; filter: drop-shadow(0 1px 1.5px #3c280059); }
-.category-tabs button:has(.category-icon) { display: inline-flex; align-items: center; gap: 7px; padding-top: 4px; padding-bottom: 4px; }
-.category-tabs .category-icon { width: 25px; height: 30px; }
-.category-badge-large { gap: 15px; font-family: var(--display); font-size: 26px; }
-.category-badge-large .category-icon { width: 78px; height: 91px; filter: drop-shadow(0 3px 5px #3c280066); }
-.category-badge-large small { display: block; font-family: 'Figtree', sans-serif; font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 3px; }
+/* Insignias con silueta progresiva, numerales grandes y metal facetado. */
+.category-badge { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-size: 13px; font-weight: 700; }
+.category-icon { display: block; width: 56px; height: 56px; flex-shrink: 0; object-fit: contain; filter: drop-shadow(0 2px 2px #24190840); }
+.rank-category-tabs { display: grid; grid-template-columns: .7fr repeat(4, minmax(0, 1fr)); align-items: stretch; }
+.rank-category-tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 112px; padding: 10px 12px; border: 1px solid var(--line); background: var(--paper); }
+.rank-category-tabs button.selected { border-color: var(--blue); box-shadow: inset 0 -3px 0 #ecc565; }
+.rank-category-tabs .category-icon { width: 64px; height: 64px; }
+.category-badge-large { gap: 18px; font-family: var(--display); font-size: 30px; }
+.category-badge-large > span { min-width: 0; overflow-wrap: anywhere; }
+.category-badge-large .category-icon { width: 120px; height: 120px; filter: drop-shadow(0 4px 5px #24190850); }
+.category-badge-large small { display: block; font-family: 'Figtree', sans-serif; font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 5px; }
 .profile-category { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 18px; background: var(--hover); border: 1px solid var(--line); border-radius: 7px; }
 .profile-category > p { max-width: 170px; font-size: 12px; line-height: 1.5; color: var(--muted); }
 .profile-heading > div { min-width: 0; overflow-wrap: anywhere; }
@@ -671,14 +687,24 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 .tournament-card-banner { padding-top: 0; overflow: hidden; }
 .card-banner { display: block; width: calc(100% + 50px); max-width: none; margin: 0 -25px 18px; aspect-ratio: 16 / 9; object-fit: cover; object-position: center 20%; background: var(--hover); }
 @media (max-width: 760px) {
-  .category-badge { gap: 4px; font-size: 10px; }
-  .category-badge .category-icon { width: 23px; height: 28px; }
-  .category-badge-large { font-size: 23px; gap: 12px; }
-  .category-badge-large .category-icon { width: 62px; height: 73px; }
+  .category-badge { gap: 6px; font-size: 12px; }
+  .category-badge .category-icon { width: 48px; height: 48px; }
+  .table-wrap .category-badge { flex-direction: column; gap: 2px; }
+  .rank-category-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rank-category-tabs button { flex-direction: row; justify-content: flex-start; min-height: 82px; gap: 8px; padding: 8px; }
+  .rank-category-tabs button:first-child { grid-column: 1 / -1; justify-content: center; min-height: 48px; }
+  .rank-category-tabs .category-icon { width: 56px; height: 56px; }
+  .category-badge-large { font-size: 27px; gap: 12px; }
+  .category-badge-large .category-icon { width: 104px; height: 104px; }
   .profile-category { flex-wrap: wrap; gap: 8px; }
   .profile-category > p { max-width: none; }
   .photo-editor { align-items: flex-start; flex-wrap: wrap; }
   .photo-editor-controls { flex-basis: 180px; }
+}
+@media (max-width: 390px) {
+  .rank-category-tabs button { flex-direction: column; justify-content: center; gap: 4px; min-height: 104px; }
+  .category-badge-large { flex-direction: column; gap: 8px; text-align: center; max-width: 100%; }
+  .profile-category .category-badge-large { width: 100%; }
 }
 
 /* Mesa de control del torneo y cuadro por rondas. */
@@ -817,7 +843,23 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .fixture-champion strong { font-family: var(--display); font-size: 24px; }
 .public-registrations { display: flex; flex-wrap: wrap; gap: 10px 28px; padding: 15px 20px; font-size: 13px; }
 .player-grid { margin-top: 18px; }
+/* Liga: clasificación acumulada y una jornada por vez, sin conectores de eliminación. */
+.league-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.league-heading > span { color: var(--muted); font-size: 12px; }
+.league-table table { min-width: 620px; }
+.league-table th, .league-table td { display: table-cell; width: auto; padding: 14px 12px; text-align: center; }
+.league-table tbody th { text-align: left; font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.league-table thead th:nth-child(2) { text-align: left; }
+.league-table td { font-family: var(--mono); font-size: 13px; }
+.league-table td:last-child { color: var(--red-ink); }
+.league-table abbr { text-decoration: none; }
+.league-round-controls { display: flex; gap: 12px; align-items: end; }
+.league-round-controls .field { flex: 1; max-width: 340px; }
+.league-round-controls .icon-button { height: 45px; }
+.league-matches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.league-rest { border-left: 3px solid var(--rule); padding: 12px 16px; background: var(--hover); font-size: 14px; }
 @media (max-width: 760px) {
+  .league-matches { grid-template-columns: 1fr; }
   dialog.modal-wide { padding: 18px; }
   .registration-columns { grid-template-columns: 1fr; gap: 20px; }
   .registration-panel, .draw-panel { padding: 14px; }

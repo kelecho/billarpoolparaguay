@@ -1,75 +1,85 @@
-# Genera las cuatro insignias con la misma plantilla: pin esmaltado con borde de oro pulido.
-import math
-OUT = __import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'public', 'badges', '')
-SHIELD = 'M48 3 88 15V56C88 81 69 99 48 109 27 99 8 81 8 56V15Z'
-FIELD = 'M48 11.5 80.5 21V56C80.5 75 67 91.5 48 101 29 91.5 15.5 75 15.5 56V21Z'
-STAR = 'M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z'
+"""Insignias vectoriales de club: siluetas progresivas y numerales legibles."""
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parent.parent / 'public' / 'badges'
+SHIELD = 'M64 22 100 36 96 82Q92 104 64 122 36 104 32 82L28 36Z'
+FIELD = 'M64 31 91 42 88 80Q84 98 64 112 44 98 40 80L37 42Z'
+STAR = 'M0-6 1.8-2 6.2-1.9 2.8 1 3.7 5.3 0 2.9-3.7 5.3-2.8 1-6.2-1.9-1.8-2Z'
+
 
 def numeral(n):
-    # Números romanos con remates, dibujados como trazos para no depender de una tipografía.
-    bar, gap, h = (5.2, 4.2, 21) if n < 3 else (4.1, 3.3, 20)
+    bar, gap = (8, 6) if n < 3 else (6, 5)
     width = n * bar + (n - 1) * gap
-    x0, y0 = 48 - width / 2, 55 - h / 2
-    parts = [f'<rect x="{x0 - 2.6:.1f}" y="{y0:.1f}" width="{width + 5.2:.1f}" height="3.6" rx=".8"/>',
-             f'<rect x="{x0 - 2.6:.1f}" y="{y0 + h - 3.6:.1f}" width="{width + 5.2:.1f}" height="3.6" rx=".8"/>']
-    parts += [f'<rect x="{x0 + i * (bar + gap):.1f}" y="{y0:.1f}" width="{bar}" height="{h}"/>' for i in range(n)]
-    return ''.join(parts)
+    x = 64 - width / 2
+    return ''.join([
+        f'<path d="M{x-3} 53h{width+6}v5h-{width+6}zM{x-3} 84h{width+6}v5h-{width+6}z"/>',
+        *(f'<rect x="{x+i*(bar+gap)}" y="56" width="{bar}" height="30"/>' for i in range(n)),
+    ])
 
-def laurel(full):
-    # Dos ramas que suben desde abajo rodeando el medallón: cada hoja sigue el arco y se abre hacia afuera.
-    count = 5 if full else 3
-    stems = 'M48 85.5 Q30 82 22.5 62M48 85.5 Q66 82 73.5 62' if full else 'M48 85.5 Q37 84.5 28.5 75M48 85.5 Q59 84.5 67.5 75'
-    leaves = [f'<path d="{stems}" fill="none" stroke="url(#oro)" stroke-width="1.3" stroke-linecap="round"/>']
-    for side in (-1, 1):
-        for i in range(count):
-            theta = 258 - i * (62 / (5 - 1)) if side < 0 else 282 + i * (62 / (5 - 1))
-            rad = math.radians(theta)
-            cx, cy = 48 + 28.2 * math.cos(rad), 55 - 28.2 * math.sin(rad)
-            rot = -theta + (38 if side < 0 else -38)
-            leaves.append(f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="2" ry="4.6" transform="rotate({rot:.0f} {cx:.1f} {cy:.1f})"/>')
-    return ''.join(leaves)
 
-def badge(name, title, light, dark, stars, mark, crown=False, laurels=None):
-    star_xs = {0: [], 1: [48], 2: [41, 55], 3: [35, 48, 61]}[stars]
-    body = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" fill="none">
- <title>Insignia de {title} · Pool Paraguay</title>
- <defs>
-  <linearGradient id="oro" x1="10" y1="6" x2="86" y2="106" gradientUnits="userSpaceOnUse"><stop stop-color="#fff4c2"/><stop offset=".22" stop-color="#f3c74d"/><stop offset=".47" stop-color="#a8720f"/><stop offset=".63" stop-color="#ffe694"/><stop offset=".82" stop-color="#d9a02a"/><stop offset="1" stop-color="#8a5a08"/></linearGradient>
-  <linearGradient id="oro2" x1="0" y1="40" x2="0" y2="70" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6cf"/><stop offset=".5" stop-color="#f3c74d"/><stop offset="1" stop-color="#b47d14"/></linearGradient>
-  <linearGradient id="esmalte" x1="18" y1="14" x2="78" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="{light}"/><stop offset="1" stop-color="{dark}"/></linearGradient>
-  <linearGradient id="brillo" x1="30" y1="12" x2="52" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <clipPath id="campo"><path d="{FIELD}"/></clipPath>
- </defs>
- <g transform="translate(4.8 11.2) scale(.9)">
-  <path d="{SHIELD}" fill="url(#oro)" stroke="#6e4705" stroke-width="1.6" stroke-linejoin="round"/>
-  <path d="M48 6.4 11.2 17.4V56C11.2 70 17.4 82 27 91" stroke="#fff8d8" stroke-width="1.1" stroke-opacity=".9" stroke-linecap="round"/>
-  <path d="{FIELD}" fill="url(#esmalte)" stroke="#5f3c04" stroke-width="1.3" stroke-linejoin="round"/>
-  <g clip-path="url(#campo)">
-   <path d="M48 8V104H90V8Z" fill="#000" fill-opacity=".2"/>
-   <path d="M22 35 74 84M74 35 22 84" stroke="#5f3c04" stroke-width="5.4" stroke-linecap="round" stroke-opacity=".55"/>
-   <path d="M22 35 74 84M74 35 22 84" stroke="url(#oro)" stroke-width="3.4" stroke-linecap="round"/>
-   <path d="M22 35 27 39.7M74 35 69 39.7" stroke="#fffefa" stroke-width="3.6" stroke-linecap="round"/>
-   <path d="M12 8H62L30 66H12Z" fill="url(#brillo)"/>
-  </g>
-  <path d="M30 17.2H66" stroke="#ce3543" stroke-width="2.6"/><path d="M30 19.8H66" stroke="#fffefa" stroke-width="2.6"/><path d="M30 22.4H66" stroke="#3f7db6" stroke-width="2.6"/>
-  <g fill="url(#oro2)" stroke="#5f3c04" stroke-width=".7" stroke-linejoin="round">{''.join(f'<path d="{STAR}" transform="translate({x} 31)"/>' for x in star_xs)}</g>
-  {f'<g fill="url(#oro)" stroke="#5f3c04" stroke-width=".5">{laurel(laurels == "full")}</g>' if laurels else ''}
-  <circle cx="48" cy="55" r="19.5" fill="{dark}" stroke="#5f3c04" stroke-width="5.2"/>
-  <circle cx="48" cy="55" r="19.5" fill="none" stroke="url(#oro)" stroke-width="3.6"/>
-  <circle cx="48" cy="55" r="16.6" fill="none" stroke="#fff8d8" stroke-width=".7" stroke-opacity=".7"/>
-  <g fill="url(#oro2)" stroke="#5f3c04" stroke-width=".8" stroke-linejoin="round">{mark}</g>
- </g>
- {CROWN if crown else ''}
- <g fill="#fff"><path d="M0-4.2.9-.9 4.2 0 .9.9 0 4.2-.9.9-4.2 0-.9-.9Z" transform="translate(19 30)"/><path d="M0-2.6.6-.6 2.6 0 .6.6 0 2.6-.6.6-2.6 0-.6-.6Z" transform="translate(27.5 22.6)" fill-opacity=".85"/></g>
+def wings(full):
+    # Plumas anchas, escalonadas: la silueta comunica el nivel aun en miniatura.
+    feathers = [
+        'M37 43 5 25 10 47 35 62Z',
+        'M35 58 9 45 16 66 37 76Z',
+        'M37 73 17 63 24 83 43 91Z',
+    ] if full else [
+        'M37 48 10 38 17 58 36 68Z',
+        'M36 65 17 57 24 77 42 88Z',
+    ]
+    feather = ''.join(f'<path d="{d}" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/>' for d in feathers)
+    lines = '<path d="M12 36 32 49M17 55 32 63M25 73 36 79" stroke="#fff4cc" stroke-width="1.5"/>' if full else '<path d="M17 46 32 53M24 66 36 73" stroke="#fff4cc" stroke-width="1.5"/>'
+    return f'<g>{feather}{lines}</g><g transform="translate(128 0) scale(-1 1)">{feather}{lines}</g>'
+
+
+def laurel():
+    branch = '<path d="M48 108Q19 95 21 66" fill="none" stroke="url(#metal)" stroke-width="3"/>'
+    for x, y, angle in [(23, 72, -25), (25, 83, -40), (31, 93, -55), (40, 101, -65)]:
+        branch += f'<path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate({x} {y}) rotate({angle})" fill="url(#metal)" stroke="#554020" stroke-width="1"/>'
+    return f'<g>{branch}</g><g transform="translate(128 0) scale(-1 1)">{branch}</g>'
+
+
+CROWN = '''<path d="M42 28 36 8 52 16 64 4 76 16 92 8 86 28Z" fill="url(#metal)" stroke="#554020" stroke-width="1.8" stroke-linejoin="round"/>
+<path d="M43 24H85V32H43Z" fill="url(#metal)" stroke="#554020" stroke-width="1.5"/>
+<path d="m64 13 4 6-4 6-4-6Z" fill="#b32038"/>
+<path d="M43 12 46 21M85 12 82 21" stroke="#fff6d3" stroke-width="2"/>'''
+DIAMOND = '<path d="m64 49 18 22-18 25-18-25Z"/><path d="m64 56 11 15-11 17-11-17Z" fill="#dcf5ff" stroke="none"/><path d="m64 56 11 15H64Z" fill="#fff" stroke="none"/><path d="M64 71h11L64 88Z" fill="#7ac9e8" stroke="none"/>'
+
+
+def badge(name, title, light, dark, stars, mark, ornament=''):
+    star_xs = {0: [], 1: [64], 2: [56, 72], 3: [48, 64, 80]}[stars]
+    decoration = wings(True) + laurel() if ornament == 'crown' else wings(False) if ornament == 'wings' else laurel() if ornament == 'laurel' else ''
+    body = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<title>Insignia de {title} · Pool Paraguay</title>
+<defs>
+ <linearGradient id="metal" x1="25" y1="15" x2="103" y2="114" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6d3"/><stop offset=".23" stop-color="#ecc565"/><stop offset=".46" stop-color="#a66b16"/><stop offset=".52" stop-color="#ffe6a0"/><stop offset=".76" stop-color="#d7a13b"/><stop offset="1" stop-color="#805010"/></linearGradient>
+ <linearGradient id="face" x1="44" y1="49" x2="76" y2="91" gradientUnits="userSpaceOnUse"><stop stop-color="#fff9e4"/><stop offset=".48" stop-color="#ffe4a0"/><stop offset="1" stop-color="#daa747"/></linearGradient>
+ <linearGradient id="enamel" x1="40" y1="35" x2="91" y2="111" gradientUnits="userSpaceOnUse"><stop stop-color="{light}"/><stop offset="1" stop-color="{dark}"/></linearGradient>
+ <clipPath id="field"><path d="{FIELD}"/></clipPath>
+</defs>
+{decoration}
+<path d="{SHIELD}" fill="#392b1d" stroke="#392b1d" stroke-width="3" stroke-linejoin="round"/>
+<path d="{SHIELD}" fill="url(#metal)"/>
+<path d="M64 25 97 38 93 81Q89 102 64 118 39 102 35 81L31 38Z" stroke="#fff2bf" stroke-opacity=".8" stroke-width="1.5"/>
+<path d="{FIELD}" fill="url(#enamel)" stroke="#49301c" stroke-width="2"/>
+<g clip-path="url(#field)">
+ <path d="M64 30V115H99V30Z" fill="#000" fill-opacity=".16"/>
+ <path d="M36 38 87 35 38 87Z" fill="#fff" fill-opacity=".12"/>
+ <path d="M43 49 85 99M85 49 43 99" stroke="#000" stroke-opacity=".2" stroke-width="5"/>
+ <path d="M43 49 85 99M85 49 43 99" stroke="url(#metal)" stroke-width="2.5"/>
+ <path d="M43 49 47 54M85 49 81 54" stroke="#f2f7f7" stroke-width="3"/>
+</g>
+<g fill="url(#face)" stroke="{dark}" stroke-width="4" stroke-linejoin="round" paint-order="stroke">{mark}</g>
+<g fill="url(#face)" stroke="#554020" stroke-width=".7">{''.join(f'<path d="{STAR}" transform="translate({x} 41) scale(.8)"/>' for x in star_xs)}</g>
+<path d="M53 100H75" stroke="#ce3543" stroke-width="3"/><path d="M53 103H75" stroke="#fffefa" stroke-width="3"/><path d="M53 106H75" stroke="#3f7db6" stroke-width="3"/>
+{CROWN if ornament == 'crown' else ''}
+<path d="m33 35 1.5 4.5L39 41l-4.5 1.5L33 47l-1.5-4.5L27 41l4.5-1.5Z" fill="#fff8dd"/>
 </svg>
 '''
-    open(OUT + name + '.svg', 'w').write(body)
+    (OUT / f'{name}.svg').write_text(body)
 
-CROWN = '''<g stroke="#6e4705" stroke-width="1.2" stroke-linejoin="round"><path d="M31 15.4 28.6 3.6 38.4 9.2 48 1.2 57.6 9.2 67.4 3.6 65 15.4Z" fill="url(#oro)"/><path d="M30.6 15H65.4V19H30.6Z" fill="url(#oro2)"/></g>
- <g fill="#ce3543" stroke="#6e4705" stroke-width=".6"><circle cx="48" cy="1.9" r="1.7"/><circle cx="28.8" cy="3.9" r="1.5"/><circle cx="67.2" cy="3.9" r="1.5"/></g>'''
-DIAMOND = '<path d="M48 42.5 58.5 55 48 67.5 37.5 55Z"/><path d="M48 48 53.6 55 48 62 42.4 55Z" fill="#fff8d8" stroke="none" fill-opacity=".55"/>'
 
-badge('primera', 'Primera', '#e8404f', '#8c1222', 3, numeral(1), crown=True, laurels='full')
-badge('segunda', 'Segunda', '#3b82d9', '#123c78', 2, numeral(2), laurels='half')
-badge('tercera', 'Tercera', '#27a06f', '#0c5135', 1, numeral(3))
-badge('principiante', 'Principiante', '#6cc3f2', '#2279b3', 0, DIAMOND)
+badge('primera', 'Primera', '#e54b5d', '#750e26', 3, numeral(1), 'crown')
+badge('segunda', 'Segunda', '#408ddd', '#112f68', 2, numeral(2), 'wings')
+badge('tercera', 'Tercera', '#2caf83', '#0b493a', 1, numeral(3), 'laurel')
+badge('principiante', 'Principiante', '#58b5df', '#19537e', 0, DIAMOND)

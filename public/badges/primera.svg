@@ -1,32 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" fill="none">
- <title>Insignia de Primera · Pool Paraguay</title>
- <defs>
-  <linearGradient id="oro" x1="10" y1="6" x2="86" y2="106" gradientUnits="userSpaceOnUse"><stop stop-color="#fff4c2"/><stop offset=".22" stop-color="#f3c74d"/><stop offset=".47" stop-color="#a8720f"/><stop offset=".63" stop-color="#ffe694"/><stop offset=".82" stop-color="#d9a02a"/><stop offset="1" stop-color="#8a5a08"/></linearGradient>
-  <linearGradient id="oro2" x1="0" y1="40" x2="0" y2="70" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6cf"/><stop offset=".5" stop-color="#f3c74d"/><stop offset="1" stop-color="#b47d14"/></linearGradient>
-  <linearGradient id="esmalte" x1="18" y1="14" x2="78" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="#e8404f"/><stop offset="1" stop-color="#8c1222"/></linearGradient>
-  <linearGradient id="brillo" x1="30" y1="12" x2="52" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <clipPath id="campo"><path d="M48 11.5 80.5 21V56C80.5 75 67 91.5 48 101 29 91.5 15.5 75 15.5 56V21Z"/></clipPath>
- </defs>
- <g transform="translate(4.8 11.2) scale(.9)">
-  <path d="M48 3 88 15V56C88 81 69 99 48 109 27 99 8 81 8 56V15Z" fill="url(#oro)" stroke="#6e4705" stroke-width="1.6" stroke-linejoin="round"/>
-  <path d="M48 6.4 11.2 17.4V56C11.2 70 17.4 82 27 91" stroke="#fff8d8" stroke-width="1.1" stroke-opacity=".9" stroke-linecap="round"/>
-  <path d="M48 11.5 80.5 21V56C80.5 75 67 91.5 48 101 29 91.5 15.5 75 15.5 56V21Z" fill="url(#esmalte)" stroke="#5f3c04" stroke-width="1.3" stroke-linejoin="round"/>
-  <g clip-path="url(#campo)">
-   <path d="M48 8V104H90V8Z" fill="#000" fill-opacity=".2"/>
-   <path d="M22 35 74 84M74 35 22 84" stroke="#5f3c04" stroke-width="5.4" stroke-linecap="round" stroke-opacity=".55"/>
-   <path d="M22 35 74 84M74 35 22 84" stroke="url(#oro)" stroke-width="3.4" stroke-linecap="round"/>
-   <path d="M22 35 27 39.7M74 35 69 39.7" stroke="#fffefa" stroke-width="3.6" stroke-linecap="round"/>
-   <path d="M12 8H62L30 66H12Z" fill="url(#brillo)"/>
-  </g>
-  <path d="M30 17.2H66" stroke="#ce3543" stroke-width="2.6"/><path d="M30 19.8H66" stroke="#fffefa" stroke-width="2.6"/><path d="M30 22.4H66" stroke="#3f7db6" stroke-width="2.6"/>
-  <g fill="url(#oro2)" stroke="#5f3c04" stroke-width=".7" stroke-linejoin="round"><path d="M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z" transform="translate(35 31)"/><path d="M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z" transform="translate(48 31)"/><path d="M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z" transform="translate(61 31)"/></g>
-  <g fill="url(#oro)" stroke="#5f3c04" stroke-width=".5"><path d="M48 85.5 Q30 82 22.5 62M48 85.5 Q66 82 73.5 62" fill="none" stroke="url(#oro)" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="42.1" cy="82.6" rx="2" ry="4.6" transform="rotate(-220 42.1 82.6)"/><ellipse cx="35.0" cy="80.0" rx="2" ry="4.6" transform="rotate(-204 35.0 80.0)"/><ellipse cx="28.8" cy="75.6" rx="2" ry="4.6" transform="rotate(-189 28.8 75.6)"/><ellipse cx="24.0" cy="69.7" rx="2" ry="4.6" transform="rotate(-174 24.0 69.7)"/><ellipse cx="20.9" cy="62.8" rx="2" ry="4.6" transform="rotate(-158 20.9 62.8)"/><ellipse cx="53.9" cy="82.6" rx="2" ry="4.6" transform="rotate(-320 53.9 82.6)"/><ellipse cx="61.0" cy="80.0" rx="2" ry="4.6" transform="rotate(-336 61.0 80.0)"/><ellipse cx="67.2" cy="75.6" rx="2" ry="4.6" transform="rotate(-351 67.2 75.6)"/><ellipse cx="72.0" cy="69.7" rx="2" ry="4.6" transform="rotate(-366 72.0 69.7)"/><ellipse cx="75.1" cy="62.8" rx="2" ry="4.6" transform="rotate(-382 75.1 62.8)"/></g>
-  <circle cx="48" cy="55" r="19.5" fill="#8c1222" stroke="#5f3c04" stroke-width="5.2"/>
-  <circle cx="48" cy="55" r="19.5" fill="none" stroke="url(#oro)" stroke-width="3.6"/>
-  <circle cx="48" cy="55" r="16.6" fill="none" stroke="#fff8d8" stroke-width=".7" stroke-opacity=".7"/>
-  <g fill="url(#oro2)" stroke="#5f3c04" stroke-width=".8" stroke-linejoin="round"><rect x="42.8" y="44.5" width="10.4" height="3.6" rx=".8"/><rect x="42.8" y="61.9" width="10.4" height="3.6" rx=".8"/><rect x="45.4" y="44.5" width="5.2" height="21"/></g>
- </g>
- <g stroke="#6e4705" stroke-width="1.2" stroke-linejoin="round"><path d="M31 15.4 28.6 3.6 38.4 9.2 48 1.2 57.6 9.2 67.4 3.6 65 15.4Z" fill="url(#oro)"/><path d="M30.6 15H65.4V19H30.6Z" fill="url(#oro2)"/></g>
- <g fill="#ce3543" stroke="#6e4705" stroke-width=".6"><circle cx="48" cy="1.9" r="1.7"/><circle cx="28.8" cy="3.9" r="1.5"/><circle cx="67.2" cy="3.9" r="1.5"/></g>
- <g fill="#fff"><path d="M0-4.2.9-.9 4.2 0 .9.9 0 4.2-.9.9-4.2 0-.9-.9Z" transform="translate(19 30)"/><path d="M0-2.6.6-.6 2.6 0 .6.6 0 2.6-.6.6-2.6 0-.6-.6Z" transform="translate(27.5 22.6)" fill-opacity=".85"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<title>Insignia de Primera · Pool Paraguay</title>
+<defs>
+ <linearGradient id="metal" x1="25" y1="15" x2="103" y2="114" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6d3"/><stop offset=".23" stop-color="#ecc565"/><stop offset=".46" stop-color="#a66b16"/><stop offset=".52" stop-color="#ffe6a0"/><stop offset=".76" stop-color="#d7a13b"/><stop offset="1" stop-color="#805010"/></linearGradient>
+ <linearGradient id="face" x1="44" y1="49" x2="76" y2="91" gradientUnits="userSpaceOnUse"><stop stop-color="#fff9e4"/><stop offset=".48" stop-color="#ffe4a0"/><stop offset="1" stop-color="#daa747"/></linearGradient>
+ <linearGradient id="enamel" x1="40" y1="35" x2="91" y2="111" gradientUnits="userSpaceOnUse"><stop stop-color="#e54b5d"/><stop offset="1" stop-color="#750e26"/></linearGradient>
+ <clipPath id="field"><path d="M64 31 91 42 88 80Q84 98 64 112 44 98 40 80L37 42Z"/></clipPath>
+</defs>
+<g><path d="M37 43 5 25 10 47 35 62Z" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/><path d="M35 58 9 45 16 66 37 76Z" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/><path d="M37 73 17 63 24 83 43 91Z" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/><path d="M12 36 32 49M17 55 32 63M25 73 36 79" stroke="#fff4cc" stroke-width="1.5"/></g><g transform="translate(128 0) scale(-1 1)"><path d="M37 43 5 25 10 47 35 62Z" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/><path d="M35 58 9 45 16 66 37 76Z" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/><path d="M37 73 17 63 24 83 43 91Z" fill="url(#metal)" stroke="#554020" stroke-width="1.6"/><path d="M12 36 32 49M17 55 32 63M25 73 36 79" stroke="#fff4cc" stroke-width="1.5"/></g><g><path d="M48 108Q19 95 21 66" fill="none" stroke="url(#metal)" stroke-width="3"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(23 72) rotate(-25)" fill="url(#metal)" stroke="#554020" stroke-width="1"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(25 83) rotate(-40)" fill="url(#metal)" stroke="#554020" stroke-width="1"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(31 93) rotate(-55)" fill="url(#metal)" stroke="#554020" stroke-width="1"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(40 101) rotate(-65)" fill="url(#metal)" stroke="#554020" stroke-width="1"/></g><g transform="translate(128 0) scale(-1 1)"><path d="M48 108Q19 95 21 66" fill="none" stroke="url(#metal)" stroke-width="3"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(23 72) rotate(-25)" fill="url(#metal)" stroke="#554020" stroke-width="1"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(25 83) rotate(-40)" fill="url(#metal)" stroke="#554020" stroke-width="1"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(31 93) rotate(-55)" fill="url(#metal)" stroke="#554020" stroke-width="1"/><path d="M0 7Q-10 0 0-9 9 0 0 7Z" transform="translate(40 101) rotate(-65)" fill="url(#metal)" stroke="#554020" stroke-width="1"/></g>
+<path d="M64 22 100 36 96 82Q92 104 64 122 36 104 32 82L28 36Z" fill="#392b1d" stroke="#392b1d" stroke-width="3" stroke-linejoin="round"/>
+<path d="M64 22 100 36 96 82Q92 104 64 122 36 104 32 82L28 36Z" fill="url(#metal)"/>
+<path d="M64 25 97 38 93 81Q89 102 64 118 39 102 35 81L31 38Z" stroke="#fff2bf" stroke-opacity=".8" stroke-width="1.5"/>
+<path d="M64 31 91 42 88 80Q84 98 64 112 44 98 40 80L37 42Z" fill="url(#enamel)" stroke="#49301c" stroke-width="2"/>
+<g clip-path="url(#field)">
+ <path d="M64 30V115H99V30Z" fill="#000" fill-opacity=".16"/>
+ <path d="M36 38 87 35 38 87Z" fill="#fff" fill-opacity=".12"/>
+ <path d="M43 49 85 99M85 49 43 99" stroke="#000" stroke-opacity=".2" stroke-width="5"/>
+ <path d="M43 49 85 99M85 49 43 99" stroke="url(#metal)" stroke-width="2.5"/>
+ <path d="M43 49 47 54M85 49 81 54" stroke="#f2f7f7" stroke-width="3"/>
+</g>
+<g fill="url(#face)" stroke="#750e26" stroke-width="4" stroke-linejoin="round" paint-order="stroke"><path d="M57.0 53h14v5h-14zM57.0 84h14v5h-14z"/><rect x="60.0" y="56" width="8" height="30"/></g>
+<g fill="url(#face)" stroke="#554020" stroke-width=".7"><path d="M0-6 1.8-2 6.2-1.9 2.8 1 3.7 5.3 0 2.9-3.7 5.3-2.8 1-6.2-1.9-1.8-2Z" transform="translate(48 41) scale(.8)"/><path d="M0-6 1.8-2 6.2-1.9 2.8 1 3.7 5.3 0 2.9-3.7 5.3-2.8 1-6.2-1.9-1.8-2Z" transform="translate(64 41) scale(.8)"/><path d="M0-6 1.8-2 6.2-1.9 2.8 1 3.7 5.3 0 2.9-3.7 5.3-2.8 1-6.2-1.9-1.8-2Z" transform="translate(80 41) scale(.8)"/></g>
+<path d="M53 100H75" stroke="#ce3543" stroke-width="3"/><path d="M53 103H75" stroke="#fffefa" stroke-width="3"/><path d="M53 106H75" stroke="#3f7db6" stroke-width="3"/>
+<path d="M42 28 36 8 52 16 64 4 76 16 92 8 86 28Z" fill="url(#metal)" stroke="#554020" stroke-width="1.8" stroke-linejoin="round"/>
+<path d="M43 24H85V32H43Z" fill="url(#metal)" stroke="#554020" stroke-width="1.5"/>
+<path d="m64 13 4 6-4 6-4-6Z" fill="#b32038"/>
+<path d="M43 12 46 21M85 12 82 21" stroke="#fff6d3" stroke-width="2"/>
+<path d="m33 35 1.5 4.5L39 41l-4.5 1.5L33 47l-1.5-4.5L27 41l4.5-1.5Z" fill="#fff8dd"/>
 </svg>

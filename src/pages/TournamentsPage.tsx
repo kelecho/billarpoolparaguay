@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CalendarDays, Plus } from 'lucide-react';
+import DisciplineIcon from '../components/DisciplineIcon';
 import { DISCIPLINES, type Discipline, type State, type Tournament } from '../domain';
 
 type Props = { state: State; canEdit: boolean; onCreate: () => void; renderTournament: (t: Tournament) => ReactNode };
@@ -22,8 +23,8 @@ export default function TournamentsPage({ state, canEdit, onCreate, renderTourna
       </div>
       <p className="page-description">{canEdit ? 'Organizá los encuentros y registrá cada resultado.' : 'La agenda de encuentros y los resultados de cada torneo.'}</p>
       <div className="filters">
-        <div className="category-tabs" role="group" aria-label="Filtrar disciplina">
-          {(['Todas', ...DISCIPLINES] as const).map(d => <button key={d} aria-pressed={discipline === d} className={discipline === d ? 'selected' : ''} onClick={() => setDiscipline(d)}>{d}</button>)}
+        <div className="category-tabs discipline-tabs" role="group" aria-label="Filtrar disciplina">
+          {(['Todas', ...DISCIPLINES] as const).map(d => <button key={d} aria-pressed={discipline === d} className={discipline === d ? 'selected' : ''} onClick={() => setDiscipline(d)}><DisciplineIcon discipline={d} /><span>{d}</span></button>)}
         </div>
         <select aria-label="Filtrar torneos por categoría" className="city-filter" value={category} onChange={e => setCategory(e.target.value)}><option value="">Todas las categorías</option>{state.rules.categories.map(c => <option key={c.name}>{c.name}</option>)}</select>
       </div>

@@ -1,9 +1,9 @@
 import type { Tournament } from './domain';
 
 /** G: llave de ganadores, P: llave de perdedores, F: fase final, T: partido por el tercer puesto. La eliminación directa solo usa T. */
-export type Bracket = 'G' | 'P' | 'F' | 'T';
-export type Format = 'single' | 'double';
-export type Match = { id: string; round: number; index: number; bracket?: Bracket; scoreA?: number; scoreB?: number; table?: string; time?: string };
+export type Bracket = 'G' | 'P' | 'F' | 'T' | 'L';
+export type Format = 'single' | 'double' | 'league';
+export type Match = { id: string; round: number; index: number; bracket?: Bracket; scoreA?: number; scoreB?: number; table?: string; time?: string; date?: string };
 export type Fixture = { draw?: 'random' | 'ranking' | 'manual'; seeds: (string | null)[]; matches: Match[] };
 /** `place`: puesto de quien pierde el partido y queda eliminado; en la llave de ganadores nadie queda eliminado. */
 /** De qué partido sale un jugador que todavía no está definido. */
@@ -19,12 +19,29 @@ export type ResolvedMatch = Match & {
   /** La revancha no hizo falta: el invicto ganó la gran final. */
   unneeded?: boolean;
 };
-type Shape = Pick<Tournament, 'format' | 'qualifiers' | 'thirdPlace' | 'finalRematch'>;
+type Shape = Pick<Tournament, 'format' | 'qualifiers' | 'thirdPlace' | 'finalRematch' | 'leagueRounds'>;
 type Bracketed = Shape & Pick<Tournament, 'fixture'>;
 type Source = { seed: number } | { winner: string } | { loser: string };
 type Slot = { id: string; round: number; index: number; bracket?: Bracket; a: Source; b: Source; place?: number; winnerPlace?: number; decisive?: boolean; rematchOf?: string };
 export const MAX_ENTRANTS = 128;
+export const MAX_LEAGUE_ENTRANTS = 32;
+export const entrantLimit = (format?: Format) => format === 'league' ? MAX_LEAGUE_ENTRANTS : MAX_ENTRANTS;
 export const QUALIFIER_OPTIONS = [2, 4, 8, 16, 32];
+
+/** Rotación circular: cada pareja se enfrenta una vez por vuelta, sin repetir jugador en una jornada. */
+function leagueLayout(size: number, legs = 1): Slot[] {
+  const wheel = Array.from({ length: size }, (_, i) => i);
+  const first: Slot[] = [];
+  for (let round = 0; round < size - 1; round++) {
+    for (let index = 0; index < size / 2; index++) {
+      const pair = [wheel[index], wheel[size - 1 - index]];
+      if ((round + index) % 2) pair.reverse();
+      first.push({ id: `L${round + 1}-${index + 1}`, round, index, bracket: 'L', a: { seed: pair[0] }, b: { seed: pair[1] } });
+    }
+    wheel.splice(1, 0, wheel.pop()!);
+  }
+  return legs === 2 ? [...first, ...first.map(s => ({ ...s, id: `L${s.round + size}-${s.index + 1}`, round: s.round + size - 1, a: s.b, b: s.a }))] : first;
+}
 
 /**
  * De dónde sale cada jugador de cada partido. El cuadro no se guarda: se deduce del tamaño y del formato,
@@ -35,6 +52,7 @@ export const QUALIFIER_OPTIONS = [2, 4, 8, 16, 32];
  * directa. Con dos clasificados esa fase es la gran final a partido único.
  */
 function layout(size: number, shape: Shape): Slot[] {
+  if (shape.format === 'league') return leagueLayout(size, shape.leagueRounds);
   const slots = mainLayout(size, shape);
   const final = slots.at(-1)!;
   final.decisive = true;
@@ -103,7 +121,14 @@ const bracketSize = (entrants: number) => 2 ** Math.ceil(Math.log2(entrants));
 
 /** Distribuye las cabezas de serie; los pases libres corresponden a las primeras. */
 export function buildFixture(players: string[], shape: Shape = {}): Fixture {
-  if (players.length < 2 || players.length > MAX_ENTRANTS || new Set(players).size !== players.length) throw new Error(`Inscribí entre 2 y ${MAX_ENTRANTS} jugadores distintos.`);
+  const limit = entrantLimit(shape.format);
+  if (players.length < 2 || players.length > limit || new Set(players).size !== players.length) throw new Error(`Inscribí entre 2 y ${limit} jugadores distintos.`);
+  if (shape.format === 'league') {
+    if (shape.qualifiers !== undefined || shape.thirdPlace || shape.finalRematch || (shape.leagueRounds !== undefined && ![1, 2].includes(shape.leagueRounds))) throw new Error('Revisá las opciones de la liga: una vuelta o ida y vuelta, sin eliminatorias.');
+    const seeds: (string | null)[] = [...players];
+    if (seeds.length % 2) seeds.push(null);
+    return { seeds, matches: layout(seeds.length, shape).map(({ id, round, index, bracket }) => ({ id, round, index, bracket })) };
+  }
   const size = bracketSize(players.length);
   if (shape.format === 'double') {
     const qualifiers = shape.qualifiers ?? 2;
@@ -162,6 +187,11 @@ export function resolveFixture(tournament: Bracketed): ResolvedMatch[] {
  * el torneo recién está completo, y se puede publicar, cuando no queda ningún partido por jugar.
  */
 export function fixtureOutcome(matches: ResolvedMatch[]): { complete: boolean; champion: string | null } {
+  if (matches.some(m => m.bracket === 'L')) {
+    const complete = matches.every(m => m.complete);
+    const leaders = leagueStandings(matches).filter(p => p.place === 1);
+    return { complete, champion: complete && leaders.length === 1 ? leaders[0].playerId : null };
+  }
   const decisive = matches.filter(m => m.decisive);
   const decided = decisive.length > 0 && decisive.every(m => m.complete);
   return { complete: matches.length > 0 && matches.every(m => m.complete), champion: decided ? decisive.filter(m => m.winner).at(-1)?.winner ?? null : null };
@@ -170,6 +200,7 @@ export function fixtureOutcome(matches: ResolvedMatch[]): { complete: boolean; c
 export function fixturePlacements(tournament: Bracketed): { playerId: string; place: number }[] {
   const matches = resolveFixture(tournament);
   const { complete, champion } = fixtureOutcome(matches);
+  if (tournament.format === 'league' && complete) return leagueStandings(matches).map(({ playerId, place }) => ({ playerId, place }));
   if (!complete || !champion) throw new Error('Completá todos los partidos antes de publicar los resultados.');
   return [
     { playerId: champion, place: 1 },
@@ -177,6 +208,33 @@ export function fixturePlacements(tournament: Bracketed): { playerId: string; pl
     ...matches.filter(m => m.loser && m.place).map(m => ({ playerId: m.loser!, place: m.place! })),
   ];
 }
+
+export type LeagueStanding = { playerId: string; place: number; played: number; wins: number; losses: number; racksFor: number; racksAgainst: number; difference: number; points: number };
+
+/** Los descansos no puntúan. Una igualdad en todos los criterios comparte puesto, sin desempates arbitrarios. */
+export function leagueStandings(matches: ResolvedMatch[]): LeagueStanding[] {
+  const rows = new Map<string, LeagueStanding>();
+  for (const m of matches.filter(m => m.bracket === 'L')) {
+    for (const id of [m.playerA, m.playerB]) if (id && !rows.has(id)) rows.set(id, { playerId: id, place: 0, played: 0, wins: 0, losses: 0, racksFor: 0, racksAgainst: 0, difference: 0, points: 0 });
+    if (!m.complete || m.bye || !m.playerA || !m.playerB) continue;
+    for (const [id, scored, conceded] of [[m.playerA, m.scoreA!, m.scoreB!], [m.playerB, m.scoreB!, m.scoreA!]] as const) {
+      const row = rows.get(id)!;
+      row.played++;
+      row.wins += Number(m.winner === id);
+      row.losses += Number(m.winner !== id);
+      row.racksFor += scored;
+      row.racksAgainst += conceded;
+      row.difference = row.racksFor - row.racksAgainst;
+      row.points = row.wins * 3;
+    }
+  }
+  const compare = (a: LeagueStanding, b: LeagueStanding) => b.points - a.points || b.difference - a.difference || b.racksFor - a.racksFor;
+  const sorted = [...rows.values()].sort(compare);
+  sorted.forEach((row, i) => { row.place = i && compare(sorted[i - 1], row) === 0 ? sorted[i - 1].place : i + 1; });
+  return sorted;
+}
+
+export const validMatchDate = (date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) === date;
 
 export const roundLabel = (round: number, rounds: number) => {
   const remaining = rounds - round;
@@ -220,7 +278,8 @@ export function validateFixture(tournament: Tournament) {
   const seeds = fixture.seeds;
   const players = seeds.filter((id): id is string => typeof id === 'string');
   const registered = tournament.registered ?? [];
-  if (registered.length < 2 || seeds.length !== bracketSize(registered.length) || seeds.some(id => id !== null && typeof id !== 'string') || new Set(players).size !== players.length || players.length !== registered.length || players.some(id => !registered.includes(id))) return fail();
+  const size = tournament.format === 'league' ? registered.length + registered.length % 2 : bracketSize(registered.length);
+  if (registered.length < 2 || seeds.length !== size || seeds.some(id => id !== null && typeof id !== 'string') || new Set(players).size !== players.length || players.length !== registered.length || players.some(id => !registered.includes(id))) return fail();
   let expected: Match[];
   try { expected = buildFixture(registered, tournament).matches; } catch { return fail(); }
   if (fixture.matches.length !== expected.length) return fail();
@@ -228,6 +287,7 @@ export function validateFixture(tournament: Tournament) {
     const m = fixture.matches[i], e = expected[i];
     if (!m || m.id !== e.id || m.round !== e.round || m.index !== e.index || m.bracket !== e.bracket) return fail();
     if (m.table !== undefined && (typeof m.table !== 'string' || m.table.length > 50)) return fail();
+    if (m.date !== undefined && (tournament.format !== 'league' || !validMatchDate(m.date) || m.date < tournament.date)) return fail();
     if (m.time !== undefined && (typeof m.time !== 'string' || (m.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(m.time)))) return fail();
     if (m.scoreA === undefined && m.scoreB === undefined) continue;
     const target = tournament.raceTo ?? 5;

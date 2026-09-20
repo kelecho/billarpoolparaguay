@@ -1,4 +1,5 @@
 import CategoryBadge from '../components/CategoryBadge';
+import DisciplineIcon from '../components/DisciplineIcon';
 import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Plus, Search } from 'lucide-react';
 import Hero from '../components/Hero';
@@ -51,9 +52,9 @@ export default function RankingPage({ state, canEdit, onAddPlayer, renderTournam
         <div className="filters">
           <div className="filter-groups">
             <div className="category-tabs discipline-tabs" role="group" aria-label="Ranking por disciplina">
-              {(['General', ...DISCIPLINES] as const).map(d => <button key={d} aria-pressed={discipline === d} className={discipline === d ? 'selected' : ''} onClick={() => setDiscipline(d)}>{d}</button>)}
+              {(['General', ...DISCIPLINES] as const).map(d => <button key={d} aria-pressed={discipline === d} className={discipline === d ? 'selected' : ''} onClick={() => setDiscipline(d)}><DisciplineIcon discipline={d} /><span>{d}</span></button>)}
             </div>
-            <div className="category-tabs" role="group" aria-label="Filtrar categoría">
+            <div className="category-tabs rank-category-tabs" role="group" aria-label="Filtrar categoría">
               {['Todas', ...state.rules.categories.map(c => c.name)].map(c => <button key={c} aria-pressed={selectedCategory === c} className={selectedCategory === c ? 'selected' : ''} onClick={() => setCategory(c)}>{c !== 'Todas' && <CategoryBadge category={c} rules={state.rules} iconOnly />}{c}</button>)}
             </div>
           </div>

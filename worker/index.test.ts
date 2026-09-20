@@ -6,6 +6,7 @@ import { createR2 } from '../scripts/r2-node.mjs';
 // @ts-expect-error: comando en JavaScript, sin tipos
 import { saveUser } from '../scripts/create-user.mjs';
 import { applyAction, createState, type Action } from '../src/domain.ts';
+import { resolveFixture } from '../src/fixture.ts';
 import worker, { type Env } from './index.ts';
 
 const ORIGIN = 'https://pool.example';
@@ -374,6 +375,27 @@ describe('Fotos compartidas', () => {
 });
 
 describe('Tablas por entidad', () => {
+  it('conserva una liga impar de ida y vuelta, sus jornadas, fechas y resultados en D1', async () => {
+    await login();
+    let state = createState(false);
+    state.players = Array.from({ length: 5 }, (_, i) => ({ id: `l${i}`, name: `Jugador ${i}`, city: 'Asunción', club: '', category: 'Tercera', initialPoints: 0 }));
+    const send = (action: Action) => { state = applyAction(state, action, '2025-06-01'); };
+    send({ type: 'tournament.save', tournament: { id: 'liga', name: 'Liga de club', date: '2025-01-01', venue: 'Club', discipline: 'Bola 10', category: 'Tercera', format: 'league', leagueRounds: 2, raceTo: 3, results: [] } });
+    const playerIds = state.players.map(p => p.id).reverse();
+    send({ type: 'registration.save', tournamentId: 'liga', playerIds });
+    send({ type: 'fixture.generate', tournamentId: 'liga', playerIds, draw: 'manual' });
+    const match = resolveFixture(state.tournaments[0]).find(m => !m.bye)!;
+    send({ type: 'match.schedule', tournamentId: 'liga', matchId: match.id, date: '2025-03-02', table: '3', time: '20:00' });
+    expect((await call('PUT', '/api/state', { state, version: 0 })).status).toBe(200);
+    expect((await call('GET', '/api/state')).data.state).toEqual(state);
+    const scored = await call('POST', '/api/actions', { action: { type: 'match.score', tournamentId: 'liga', matchId: match.id, scoreA: 3, scoreB: 1 }, version: 1 });
+    expect(scored.status).toBe(200);
+    expect((await call('GET', '/api/state')).data.state).toEqual(scored.data.state);
+    const stored = scored.data.state.tournaments[0];
+    expect(stored.fixture.seeds).toHaveLength(6);
+    expect(resolveFixture(stored).filter(m => !m.bye)).toHaveLength(20);
+    expect(stored.fixture.matches.find((m: { id: string }) => m.id === match.id)).toMatchObject({ date: '2025-03-02', scoreA: 3, scoreB: 1 });
+  });
   /** Torneo con fixture a medio jugar: pases libres, mesa, hora y un resultado. */
   function played() {
     let state = createState();

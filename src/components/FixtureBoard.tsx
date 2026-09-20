@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Check, Clock, Trophy } from 'lucide-react';
-import { localDate, type Action, type State, type Tournament } from '../domain';
+import { dateLabel, localDate, type Action, type State, type Tournament } from '../domain';
 import { fixtureOutcome, fixtureSections, resolveFixture, type Feed, type ResolvedMatch } from '../fixture';
 import Avatar from './Avatar';
 import Field from './Field';
@@ -8,7 +8,7 @@ import ConfirmButton from './ConfirmButton';
 
 type Submit = (action: Action) => Promise<boolean>;
 
-function MatchCard({ match: m, tournament: t, state, editable, busy, final, submit }: { match: ResolvedMatch; tournament: Tournament; state: State; editable: boolean; busy: boolean; final: boolean; submit: Submit }) {
+export function MatchCard({ match: m, tournament: t, state, editable, busy, final, submit }: { match: ResolvedMatch; tournament: Tournament; state: State; editable: boolean; busy: boolean; final: boolean; submit: Submit }) {
   const [editing, setEditing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   // Quien todavía no está definido se nombra por el partido del que sale: así se sigue el rumbo aunque venga de otra llave.
@@ -17,7 +17,7 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     const action: Action = schedule
-      ? { type: 'match.schedule', tournamentId: t.id, matchId: m.id, table: String(data.get('table')), time: String(data.get('time')) }
+      ? { type: 'match.schedule', tournamentId: t.id, matchId: m.id, table: String(data.get('table')), time: String(data.get('time')), ...(t.format === 'league' ? { date: String(data.get('date')) } : {}) }
       : { type: 'match.score', tournamentId: t.id, matchId: m.id, scoreA: Number(data.get('scoreA')), scoreB: Number(data.get('scoreB')) };
     if (await submit(action)) { setEditing(false); setScheduling(false); }
   };
@@ -41,10 +41,10 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
           </div>
         );
       })}
-      {(m.table || m.time) && <p className="match-schedule"><Clock size={12} />{[m.table && `Mesa ${m.table}`, m.time && `${m.time} h`].filter(Boolean).join(' · ')}</p>}
+      {(m.table || m.time || m.date) && <p className="match-schedule"><Clock size={12} />{[m.date && dateLabel(m.date, true), m.table && `Mesa ${m.table}`, m.time && `${m.time} h`].filter(Boolean).join(' · ')}</p>}
       {editable && !m.bye && !m.unneeded && <div className="match-actions">
-        {m.ready && <button className="text-button" disabled={busy || t.date > localDate()} onClick={() => setEditing(!editing)}>{m.complete ? 'Editar resultado' : 'Cargar resultado'}</button>}
-        <button className="text-button" disabled={busy} onClick={() => setScheduling(!scheduling)}>Mesa y horario</button>
+        {m.ready && <button className="text-button" disabled={busy || (m.date ?? t.date) > localDate()} onClick={() => setEditing(!editing)}>{m.complete ? 'Editar resultado' : 'Cargar resultado'}</button>}
+        <button className="text-button" disabled={busy} onClick={() => setScheduling(!scheduling)}>{t.format === 'league' ? 'Fecha, mesa y horario' : 'Mesa y horario'}</button>
       </div>}
       {editable && editing && <form className="match-form" onSubmit={e => void save(e)}>
         <p className="small">Primero en llegar a {t.raceTo ?? 5} partidas.</p>
@@ -53,6 +53,7 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
         {m.complete && <ConfirmButton confirmLabel="Confirmar: quitar resultado" disabled={busy} onConfirm={() => { void submit({ type: 'match.clear', tournamentId: t.id, matchId: m.id }).then(ok => { if (ok) setEditing(false); }); }}>Quitar resultado</ConfirmButton>}
       </form>}
       {editable && scheduling && <form className="match-form" onSubmit={e => void save(e, true)}>
+        {t.format === 'league' && <Field label="Fecha del partido"><input type="date" name="date" min={t.date} defaultValue={m.date} /></Field>}
         <Field label="Mesa"><input name="table" maxLength={50} defaultValue={m.table} placeholder="Ej.: 1" /></Field>
         <Field label="Hora del partido"><input type="time" name="time" defaultValue={m.time} /></Field>
         <button className="button" disabled={busy}>Guardar programación</button>

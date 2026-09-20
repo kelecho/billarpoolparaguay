@@ -34,7 +34,7 @@ export default function PlayersPage({ state, ranking, canEdit, onAddPlayer }: Pr
           {cities.map(c => <option key={c}>{c}</option>)}
         </select>
       </div>
-      <div className="category-tabs" role="group" aria-label="Categoría de jugadores">{['', ...state.rules.categories.map(c => c.name)].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'selected' : ''} onClick={() => setCategory(c)}>{c || 'Todas'}</button>)}</div>
+      <div className="category-tabs rank-category-tabs" role="group" aria-label="Categoría de jugadores">{['', ...state.rules.categories.map(c => c.name)].map(c => <button key={c} aria-pressed={category === c} className={category === c ? 'selected' : ''} onClick={() => setCategory(c)}>{c && <CategoryBadge category={c} rules={state.rules} iconOnly />}{c || 'Todas'}</button>)}</div>
       <ul className="player-grid">
         {players.map(p => (
           <li key={p.id}>

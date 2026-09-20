@@ -1,4 +1,4 @@
-import { MAX_ENTRANTS, QUALIFIER_OPTIONS, validateFixture, type Fixture, type Format } from './fixture.ts';
+import { entrantLimit, QUALIFIER_OPTIONS, validateFixture, type Fixture, type Format } from './fixture.ts';
 import { applyTournamentAction, type TournamentAction } from './tournamentActions.ts';
 import { isPhotoRef, validBanner, validPlayerPhoto } from './playerPhoto.ts';
 
@@ -10,6 +10,8 @@ export type Result = { playerId: string; place: number; points: number };
 export type Tournament = { id: string; name: string; date: string; venue: string; discipline: Discipline; results: Result[]; category?: string; registered?: string[]; raceTo?: number; fixture?: Fixture;
   /** Sin valor es eliminación directa. En doble eliminación, `qualifiers` jugadores pasan a la fase final de eliminación directa. */
   format?: Format; qualifiers?: number;
+  /** Liga todos contra todos: una vuelta por defecto; 2 para ida y vuelta. */
+  leagueRounds?: 1 | 2;
   /** Los que pierden las semifinales juegan por el tercer puesto en vez de compartirlo. */
   thirdPlace?: boolean;
   /** Doble eliminación con gran final: si pierde el invicto, se juega una revancha. */
@@ -66,7 +68,7 @@ export function localDate(offset = 0) {
 export const dateIn = (timeZone: string, now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
 
 /** Sin publicar y con fecha de hoy o de ayer: hay inscripciones, sorteo o marcadores por aparecer, y vale la pena actualizar seguido. */
-export const isMatchDay = (t: Tournament, today = localDate(), since = localDate(-1)) => !t.results.length && t.date <= today && t.date >= since;
+export const isMatchDay = (t: Tournament, today = localDate(), since = localDate(-1)) => !t.results.length && t.date <= today && (t.format === 'league' || t.date >= since);
 /** Además ya tiene fixture: se están jugando los partidos. */
 export const isLive = (t: Tournament, today?: string, since?: string) => Boolean(t.fixture) && isMatchDay(t, today, since);
 
@@ -145,12 +147,14 @@ export function validateState(input: unknown): State {
     if (t.category !== undefined && !rules.categories.some(c => c.name === t.category)) return fail();
     if (t.raceTo !== undefined && (!Number.isInteger(t.raceTo) || t.raceTo < 1 || t.raceTo > 30)) return fail();
     if (t.banner !== undefined && !validBanner(t.banner) && !isPhotoRef(t.banner)) throw new Error('El banner del torneo no es válido. Volvé a cargarlo.');
-    if (t.format !== undefined && t.format !== 'single' && t.format !== 'double') return fail();
+    if (t.format !== undefined && !['single', 'double', 'league'].includes(t.format)) return fail();
+    if (t.leagueRounds !== undefined && (t.format !== 'league' || ![1, 2].includes(t.leagueRounds))) return fail();
     if (t.qualifiers !== undefined && (t.format !== 'double' || !QUALIFIER_OPTIONS.includes(t.qualifiers))) return fail();
     if ((t.thirdPlace !== undefined && t.thirdPlace !== true) || (t.finalRematch !== undefined && t.finalRematch !== true)) return fail();
     if (t.finalRematch && (t.format !== 'double' || (t.qualifiers ?? 2) !== 2)) return fail();
     if (t.thirdPlace && t.format === 'double' && (t.qualifiers ?? 2) === 2) return fail();
-    if (t.registered !== undefined && (!Array.isArray(t.registered) || t.registered.length > MAX_ENTRANTS || new Set(t.registered).size !== t.registered.length || t.registered.some(id => !ids.has(id)))) return fail();
+    if (t.format === 'league' && t.thirdPlace) return fail();
+    if (t.registered !== undefined && (!Array.isArray(t.registered) || t.registered.length > entrantLimit(t.format) || new Set(t.registered).size !== t.registered.length || t.registered.some(id => !ids.has(id)))) return fail();
     if ((t.fixture || t.registered?.length) && !t.category) return fail();
     if (t.registered?.some(id => playerCategory(value.players.find(p => p.id === id)!, value) !== t.category)) return fail();
     if (t.category && t.results.some(r => !t.registered?.includes(r.playerId))) return fail();
@@ -188,10 +192,11 @@ export function applyAction(state: State, action: Action, today = localDate()): 
       if (!current && !action.tournament.category) throw new Error('Elegí la categoría del torneo.');
       if (current?.registered?.length && action.tournament.category !== current.category) throw new Error('Quitá los inscriptos antes de cambiar la categoría del torneo.');
       const double = action.tournament.format === 'double';
+      const league = action.tournament.format === 'league';
       const grandFinal = double && (action.tournament.qualifiers ?? 2) === 2;
       // Cada opción vale solo donde tiene sentido: revancha con gran final, tercer puesto donde hay semifinales.
-      const shape = { format: double ? 'double' as const : undefined, qualifiers: double ? action.tournament.qualifiers ?? 2 : undefined, thirdPlace: action.tournament.thirdPlace && !grandFinal ? true as const : undefined, finalRematch: action.tournament.finalRematch && grandFinal ? true as const : undefined };
-      if (current?.fixture && ((action.tournament.raceTo ?? 5) !== (current.raceTo ?? 5) || action.tournament.discipline !== current.discipline || action.tournament.date !== current.date || shape.format !== current.format || shape.qualifiers !== current.qualifiers || shape.thirdPlace !== current.thirdPlace || shape.finalRematch !== current.finalRematch)) throw new Error('No se puede cambiar la fecha, disciplina, formato o partidas para ganar con el fixture armado.');
+      const shape = { format: league ? 'league' as const : double ? 'double' as const : undefined, leagueRounds: league ? action.tournament.leagueRounds ?? 1 : undefined, qualifiers: double ? action.tournament.qualifiers ?? 2 : undefined, thirdPlace: action.tournament.thirdPlace && !grandFinal && !league ? true as const : undefined, finalRematch: action.tournament.finalRematch && grandFinal ? true as const : undefined };
+      if (current?.fixture && ((action.tournament.raceTo ?? 5) !== (current.raceTo ?? 5) || action.tournament.discipline !== current.discipline || action.tournament.date !== current.date || shape.format !== current.format || (shape.leagueRounds ?? 1) !== (current.leagueRounds ?? 1) || shape.qualifiers !== current.qualifiers || shape.thirdPlace !== current.thirdPlace || shape.finalRematch !== current.finalRematch)) throw new Error('No se puede cambiar la fecha, disciplina, formato o partidas para ganar con el fixture armado.');
       const tournament = { ...action.tournament, ...shape, registered: current?.registered ?? [], fixture: current?.fixture, results: current?.results || [] };
       next = { ...state, tournaments: current ? state.tournaments.map(t => t.id === tournament.id ? tournament : t) : [...state.tournaments, tournament] };
       break;

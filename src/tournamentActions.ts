@@ -1,5 +1,5 @@
 import type { State, Tournament } from './domain';
-import { buildFixture, fixturePlacements, hasScoredDescendant, MAX_ENTRANTS, resolveFixture } from './fixture.ts';
+import { buildFixture, fixturePlacements, hasScoredDescendant, entrantLimit, resolveFixture, validMatchDate } from './fixture.ts';
 
 export type TournamentAction =
   | { type: 'registration.save'; tournamentId: string; playerIds: string[] }
@@ -7,7 +7,7 @@ export type TournamentAction =
   | { type: 'fixture.reset'; tournamentId: string }
   | { type: 'match.score'; tournamentId: string; matchId: string; scoreA: number; scoreB: number }
   | { type: 'match.clear'; tournamentId: string; matchId: string }
-  | { type: 'match.schedule'; tournamentId: string; matchId: string; table: string; time: string }
+  | { type: 'match.schedule'; tournamentId: string; matchId: string; table: string; time: string; date?: string }
   | { type: 'fixture.publish'; tournamentId: string };
 
 export function applyTournamentAction(state: State, action: TournamentAction, today: string): State {
@@ -19,7 +19,7 @@ export function applyTournamentAction(state: State, action: TournamentAction, to
   switch (action.type) {
     case 'registration.save': {
       if (current.fixture) throw new Error('Quitá el fixture antes de cambiar los inscriptos.');
-      if (!Array.isArray(action.playerIds) || action.playerIds.length > MAX_ENTRANTS || new Set(action.playerIds).size !== action.playerIds.length) throw new Error(`Inscribí hasta ${MAX_ENTRANTS} jugadores distintos.`);
+      if (!Array.isArray(action.playerIds) || action.playerIds.length > entrantLimit(current.format) || new Set(action.playerIds).size !== action.playerIds.length) throw new Error(`Inscribí hasta ${entrantLimit(current.format)} jugadores distintos.`);
       if (action.playerIds.some(id => !state.players.some(p => p.id === id && p.category === current.category))) throw new Error('Solo podés inscribir jugadores de la categoría del torneo.');
       tournament.registered = [...action.playerIds];
       break;
@@ -43,11 +43,14 @@ export function applyTournamentAction(state: State, action: TournamentAction, to
       if (!fixture || !match) throw new Error('El partido no existe.');
       if (action.type === 'match.schedule') {
         if (typeof action.table !== 'string' || action.table.length > 50 || typeof action.time !== 'string' || (action.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(action.time))) throw new Error('Revisá la mesa y la hora del partido.');
-        tournament.fixture = { ...fixture, matches: fixture.matches.map(m => m.id === match.id ? { ...m, table: action.table.trim(), time: action.time } : m) };
+        if (action.date !== undefined && action.date !== '' && (current.format !== 'league' || !validMatchDate(action.date) || action.date < current.date)) throw new Error('La fecha del partido debe ser válida y no anterior al inicio de la liga.');
+        if (match.scoreA !== undefined && action.date && action.date > today) throw new Error('Un partido disputado no puede programarse para una fecha futura.');
+        tournament.fixture = { ...fixture, matches: fixture.matches.map(m => m.id === match.id ? { ...m, table: action.table.trim(), time: action.time, date: action.date || undefined } : m) };
         break;
       }
       if (action.type === 'match.score') {
         if (current.date > today) throw new Error('Podrás registrar partidos a partir de la fecha del torneo.');
+        if (match.date && match.date > today) throw new Error('Podrás registrar el resultado a partir de la fecha del partido.');
         if (!match.ready || match.bye) throw new Error('Esperá a que estén definidos los dos jugadores del partido.');
         const target = current.raceTo ?? 5;
         if (![action.scoreA, action.scoreB].every(n => Number.isInteger(n) && n >= 0) || Math.max(action.scoreA, action.scoreB) !== target || Math.min(action.scoreA, action.scoreB) >= target) throw new Error(`El ganador debe llegar a ${target} partidas y el otro jugador debe tener menos.`);

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DISCIPLINES, localDate, type Action, type Discipline, type Tournament, type State } from '../domain';
-import { QUALIFIER_OPTIONS, type Format } from '../fixture';
+import { MAX_LEAGUE_ENTRANTS, QUALIFIER_OPTIONS, type Format } from '../fixture';
 import BannerField from './BannerField';
 import ConfirmButton from './ConfirmButton';
 import Field from './Field';
@@ -10,6 +10,7 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
   const [format, setFormat] = useState<Format>(tournament?.format ?? 'single');
   const locked = Boolean(tournament?.fixture);
   const [qualifiers, setQualifiers] = useState(tournament?.qualifiers ?? 2);
+  const [leagueRounds, setLeagueRounds] = useState<1 | 2>(tournament?.leagueRounds ?? 1);
   // Con gran final (doble eliminación y 2 clasificados) la opción es la revancha; donde hay semifinales, el tercer puesto.
   const grandFinal = format === 'double' && qualifiers === 2;
   const [banner, setBanner] = useState(tournament?.banner);
@@ -30,7 +31,7 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         raceTo: Number(data.get('raceTo') ?? tournament?.raceTo ?? 5),
         ...(banner ? { banner } : {}),
         ...(format === 'double' ? { format, qualifiers } : {}),
-        ...(grandFinal ? (data.get('finalRematch') ?? (locked && tournament?.finalRematch) ? { finalRematch: true } : {}) : (data.get('thirdPlace') ?? (locked && tournament?.thirdPlace) ? { thirdPlace: true } : {})),
+        ...(format === 'league' ? { format, leagueRounds } : grandFinal ? (data.get('finalRematch') ?? (locked && tournament?.finalRematch) ? { finalRematch: true } : {}) : (data.get('thirdPlace') ?? (locked && tournament?.thirdPlace) ? { thirdPlace: true } : {})),
         results: [],
       },
     });
@@ -49,15 +50,16 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         <Field label="Partidas para ganar"><input name="raceTo" type="number" min="1" max="30" defaultValue={tournament?.raceTo ?? 5} required disabled={Boolean(tournament?.fixture)} /></Field>
       </div>
       <div className="form-grid">
-        <Field label="Formato"><select value={format} disabled={locked} onChange={e => setFormat(e.target.value as Format)}><option value="single">Eliminación directa</option><option value="double">Doble eliminación</option></select></Field>
+        <Field label="Formato"><select value={format} disabled={locked} onChange={e => setFormat(e.target.value as Format)}><option value="single">Eliminación directa</option><option value="double">Doble eliminación</option><option value="league">Liga · todos contra todos</option></select></Field>
         {format === 'double' && <Field label="Clasifican a la fase final"><select name="qualifiers" disabled={locked} value={qualifiers} onChange={e => setQualifiers(Number(e.target.value))}>{QUALIFIER_OPTIONS.map(n => <option key={n} value={n}>{n === 2 ? '2 · solo la gran final' : `${n} jugadores`}</option>)}</select></Field>}
+        {format === 'league' && <Field label="Vueltas de la liga"><select disabled={locked} value={leagueRounds} onChange={e => setLeagueRounds(Number(e.target.value) as 1 | 2)}><option value={1}>Una vuelta</option><option value={2}>Ida y vuelta</option></select></Field>}
       </div>
-      <p className="muted small">{format === 'double'
+      <p className="muted small">{format === 'league' ? `Todos contra todos, hasta ${MAX_LEAGUE_ENTRANTS} jugadores. 3 puntos por victoria y 0 por derrota; desempate por diferencia de partidas y partidas ganadas. La fecha indica el inicio: después podés programar cada encuentro.` : format === 'double'
         ? 'Quien pierde en la llave de ganadores sigue en la de perdedores; la segunda derrota elimina. La mitad de los clasificados llega invicta y la otra mitad con una derrota, y la fase final se juega por eliminación directa a partido único.'
         : 'Eliminación directa, con sorteo inicial, pases libres y fixture hasta la final.'}</p>
-      {grandFinal
+      {format !== 'league' && (grandFinal
         ? <label className="check" key="rematch"><input name="finalRematch" type="checkbox" disabled={locked} defaultChecked={tournament?.finalRematch} /><span>Revancha en la gran final: si pierde el invicto, juegan un partido más</span></label>
-        : <label className="check" key="third"><input name="thirdPlace" type="checkbox" disabled={locked} defaultChecked={tournament?.thirdPlace} /><span>Partido por el tercer puesto entre quienes pierden las semifinales</span></label>}
+        : <label className="check" key="third"><input name="thirdPlace" type="checkbox" disabled={locked} defaultChecked={tournament?.thirdPlace} /><span>Partido por el tercer puesto entre quienes pierden las semifinales</span></label>)}
       <Field label="Sede y ciudad"><input name="venue" defaultValue={tournament?.venue} required maxLength={150} /></Field>
       <BannerField banner={banner} onChange={setBanner} onBusy={setProcessing} />
       <button className="button primary" type="submit">Guardar torneo</button>
