@@ -128,7 +128,7 @@ def coin(name, spec):
     legend = arc_text('GUARANÍES', 9.5, 51.5, 180, spacing=1.1, flip=True)
     country = arc_text('PARAGUAY', 9.5, 43, 0, spacing=1.12)
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-<title>Moneda de {value} guaraníes · insignia de {spec['title']} · BillarPool Paraguay</title>
+<title>Moneda de {value} guaraníes · insignia de {spec['title']} · BillarPool Guaraní</title>
 <defs>
  <linearGradient id="metal" x1="20" y1="12" x2="108" y2="116" gradientUnits="userSpaceOnUse">{stops}</linearGradient>
  <linearGradient id="core" x1="30" y1="26" x2="98" y2="104" gradientUnits="userSpaceOnUse">{core}</linearGradient>

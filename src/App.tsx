@@ -97,7 +97,7 @@ export default function App() {
   async function share(title: string) {
     const url = window.location.href;
     try {
-      if (navigator.share) await navigator.share({ title: `${title} · BillarPool Paraguay`, url });
+      if (navigator.share) await navigator.share({ title: `${title} · BillarPool Guaraní`, url });
       else { await navigator.clipboard.writeText(url); setNotice('Enlace copiado. Pegalo donde quieras compartirlo.'); }
     } catch { /* la persona canceló el diálogo de compartir */ }
   }
@@ -122,8 +122,8 @@ export default function App() {
       <a className="skip-link" href="#main-content" onClick={e => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
       <div className="national-stripe" aria-hidden="true" />
       <header className="club-header">
-        <a className="brand" href={pageHref('Ranking')} aria-label="BillarPool Paraguay, inicio">
-          <img src="/brand-mark.svg" alt="" /><span className="brand-wordmark"><span className="brand-name">BILLAR<span>POOL</span></span><span className="brand-location">PARAGUAY</span></span>
+        <a className="brand" href={pageHref('Ranking')} aria-label="BillarPool Guaraní, inicio">
+          <img src="/brand-mark.svg" alt="" /><span className="brand-wordmark"><span className="brand-name">BILLAR<span>POOL</span></span><span className="brand-location">GUARANÍ</span></span>
         </a>
         <nav aria-label="Navegación principal" className={canEdit ? undefined : 'nav-public'}>
           {NAV.filter(item => item.name !== 'Configuración' || canEdit).map(({ name, icon: Icon }) => (

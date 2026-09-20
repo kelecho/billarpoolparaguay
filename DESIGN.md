@@ -1,4 +1,4 @@
-# Identidad de BillarPool Paraguay
+# Identidad de BillarPool Guaraní
 
 Dirección: gráfica de club deportivo y cartel pintado. Una plataforma de jugadores paraguayos cuyo centro es la clasificación y los encuentros locales.
 
@@ -12,6 +12,8 @@ Dirección: gráfica de club deportivo y cartel pintado. Una plataforma de jugad
 Los títulos combinan azul de club con palabras clave en rojo y un pequeño remate en tres franjas rojas, blancas y azules. El acento mantiene legibilidad y lleva la paleta de la bandera a ranking, torneos, configuración y encabezados de diálogo.
 
 Changa One (normal e itálica) da a los títulos el peso de un rótulo deportivo. Figtree lleva la lectura y los formularios. IBM Plex Mono distingue puestos, puntos y fechas como datos de marcador. Las fuentes se sirven localmente, incluido el modo sin conexión.
+
+El logotipo es «BILLARPOOL» en Changa One, con «POOL» en rojo, y «GUARANÍ» de bajada en monoespaciada espaciada. El nombre es el del dominio oficial, billarpoolguarani.com.py, y el guaraní que nombra a la moneda es el mismo que da metal a las insignias de categoría. «Paraguay» sigue en la voz del sitio —la bandera, «Jugado en Paraguay», las ciudades de los jugadores—, no en el nombre.
 
 Se reemplaza el panel lateral por una cabecera de club con navegación horizontal. La portada combina un titular amplio con una bola de pool reinterpretada mediante trama radial; luego presenta un marcador de comunidad y la tabla de posiciones. El motivo se reserva para la marca: no se repite como decoración en cada tarjeta.
 

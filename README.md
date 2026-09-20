@@ -1,4 +1,4 @@
-# BillarPool Paraguay
+# BillarPool Guaraní
 
 Dominio oficial previsto: **billarpoolguarani.com.py**. Su activación está pendiente de agregar el dominio a Cloudflare y delegar sus DNS. Mientras tanto, el sitio sigue disponible en https://pool-paraguay.pool-paraguay.workers.dev.
 
