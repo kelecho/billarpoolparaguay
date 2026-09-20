@@ -247,6 +247,19 @@ describe('Doble eliminación con fase final', () => {
     expect(fixturePlacements(tournament).map(p => p.place).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
   });
 
+  it('dice de qué partido sale cada lugar sin definir, y no promete a nadie donde hay un pase libre', () => {
+    const fixture = buildFixture(['a', 'b', 'c', 'd', 'e'], { format: 'double', qualifiers: 2 });
+    const match = (id: string) => resolveFixture({ format: 'double', qualifiers: 2, fixture }).find(m => m.id === id)!;
+    expect(match('G1-2')).toMatchObject({ playerA: 'd', playerB: 'e' });
+    expect(match('G1-2').feedA).toBeUndefined();
+    // G1-1 es un pase libre: su ganador ya está definido y su «perdedor» no existe.
+    expect(match('G2-1')).toMatchObject({ playerA: 'a', feedB: { from: 'G1-2', as: 'winner' } });
+    expect(match('G2-1').feedA).toBeUndefined();
+    expect(match('P1-1')).toMatchObject({ bye: true, feedB: { from: 'G1-2', as: 'loser' } });
+    expect(match('P1-1').feedA).toBeUndefined();
+    expect(match('F1-1')).toMatchObject({ feedA: { from: 'G3-1', as: 'winner' }, feedB: { from: 'P4-1', as: 'winner' } });
+  });
+
   it('exige al menos tres inscriptos y una fase final que entre en el cuadro', () => {
     expect(() => buildFixture(['a', 'b'], { format: 'double', qualifiers: 2 })).toThrow(/al menos 3/);
     expect(() => buildFixture(['a', 'b', 'c', 'd', 'e'], { format: 'double', qualifiers: 8 })).toThrow(/hasta 4 jugadores/);

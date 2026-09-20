@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Check, Clock, Trophy } from 'lucide-react';
 import { localDate, type Action, type State, type Tournament } from '../domain';
-import { fixtureSections, resolveFixture, type ResolvedMatch } from '../fixture';
+import { fixtureSections, resolveFixture, type Feed, type ResolvedMatch } from '../fixture';
 import Avatar from './Avatar';
 import Field from './Field';
 import ConfirmButton from './ConfirmButton';
@@ -11,7 +11,8 @@ type Submit = (action: Action) => Promise<boolean>;
 function MatchCard({ match: m, tournament: t, state, editable, busy, final, submit }: { match: ResolvedMatch; tournament: Tournament; state: State; editable: boolean; busy: boolean; final: boolean; submit: Submit }) {
   const [editing, setEditing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
-  const name = (id: string | null) => id ? state.players.find(p => p.id === id)?.name ?? 'Jugador' : m.ready ? 'Pase libre' : 'Por definir';
+  // Quien todavía no está definido se nombra por el partido del que sale: así se sigue el rumbo aunque venga de otra llave.
+  const name = (id: string | null, feed?: Feed) => id ? state.players.find(p => p.id === id)?.name ?? 'Jugador' : feed ? `${feed.as === 'winner' ? 'Ganador' : 'Perdedor'} de ${feed.from}` : m.bye ? 'Pase libre' : 'Por definir';
   const save = async (e: FormEvent<HTMLFormElement>, schedule = false) => {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
@@ -27,15 +28,15 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
     ? <span className="match-beads" aria-hidden="true">{Array.from({ length: target }, (_, i) => <i key={i} className={i < (score ?? 0) ? 'on' : undefined} />)}</span>
     : null;
   return (
-    <article className={`fixture-match${m.complete ? ' match-complete' : ''}${playable ? ' match-playable' : ''}${final ? ' match-final' : ''}`} aria-label={`Partido ${m.id}`}>
+    <article className={`fixture-match${m.complete ? ' match-complete' : ''}${m.bye ? ' match-bye' : ''}${playable ? ' match-playable' : ''}${final ? ' match-final' : ''}`} aria-label={`Partido ${m.id}`}>
       <div className="match-heading"><span>Partido {m.id}</span>{m.bye ? <span>Pase libre</span> : m.complete ? <span className="match-status match-status-done"><Check size={13} aria-label="Finalizado" /></span> : <span className={`match-status${playable ? ' match-status-live' : ''}`}>{m.ready ? 'Por jugar' : 'En espera'}</span>}</div>
-      {[{ id: m.playerA, score: m.scoreA }, { id: m.playerB, score: m.scoreB }].map((p, i) => {
+      {[{ id: m.playerA, score: m.scoreA, feed: m.feedA }, { id: m.playerB, score: m.scoreB, feed: m.feedB }].map((p, i) => {
         const player = state.players.find(x => x.id === p.id);
         const won = Boolean(p.id) && p.id === m.winner;
         return (
           <div className={`match-player${won ? ' match-winner' : ''}${m.complete && !won ? ' match-loser' : ''}`} key={i}>
             {player ? <Avatar name={player.name} tone={i + 1} photo={player.photo} /> : <span className="avatar match-empty" aria-hidden="true" />}
-            <span className="match-name">{name(p.id)}{beads(p.score)}</span>
+            <span className={`match-name${p.id ? '' : ' match-pending'}`}>{name(p.id, p.feed)}{beads(p.score)}</span>
             <b className="match-score">{p.score ?? (won ? '✓' : '—')}</b>
           </div>
         );
@@ -85,7 +86,14 @@ export default function FixtureBoard({ tournament, state, canEdit, busy, submit 
     </div>}
     {shown && <div id={`${tabs}-panel`} role={sections.length > 1 ? 'tabpanel' : undefined} aria-labelledby={sections.length > 1 ? `${tabs}-${shown.bracket}` : undefined}>
       <div className={`fixture-board fixture-board-${shown.bracket ?? 'S'}`} role="region" aria-label={shown.title ?? 'Fixture del torneo'} tabIndex={0}>
-        {shown.rounds.map((round, i) => <section className="fixture-round" key={i}><h4>{round.label}<span>{count(round.matches)}</span></h4><div className="fixture-round-matches">{round.matches.map(m => <MatchCard key={`${m.id}-${m.playerA}-${m.playerB}`} match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={m.id === final?.id} submit={submit} />)}</div></section>)}
+        {shown.rounds.map((round, i) => {
+          // Dos partidos se juntan en uno de la ronda siguiente, o uno sigue derecho: cada caso lleva su conector.
+          const next = shown.rounds[i + 1]?.matches.length;
+          const link = next === round.matches.length ? ' round-straight' : next !== undefined && next * 2 === round.matches.length ? ' round-merge' : '';
+          const previous = shown.rounds[i - 1]?.matches.length;
+          const fed = previous !== undefined && (previous === round.matches.length || previous === round.matches.length * 2) ? ' round-fed' : '';
+          return <section className={`fixture-round${link}${fed}`} key={i}><h4>{round.label}<span>{count(round.matches)}</span></h4><div className="fixture-round-matches">{round.matches.map(m => <div className={`fixture-cell${m.complete ? ' cell-done' : ''}`} key={`${m.id}-${m.playerA}-${m.playerB}`}><MatchCard match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={m.id === final?.id} submit={submit} /></div>)}</div></section>;
+        })}
       </div>
     </div>}
   </>;

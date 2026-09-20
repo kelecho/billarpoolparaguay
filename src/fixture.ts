@@ -6,7 +6,9 @@ export type Format = 'single' | 'double';
 export type Match = { id: string; round: number; index: number; bracket?: Bracket; scoreA?: number; scoreB?: number; table?: string; time?: string };
 export type Fixture = { draw?: 'random' | 'ranking' | 'manual'; seeds: (string | null)[]; matches: Match[] };
 /** `place`: puesto de quien pierde el partido y queda eliminado; en la llave de ganadores nadie queda eliminado. */
-export type ResolvedMatch = Match & { playerA: string | null; playerB: string | null; ready: boolean; complete: boolean; winner: string | null; loser: string | null; bye: boolean; place?: number };
+/** De qué partido sale un jugador que todavía no está definido. */
+export type Feed = { from: string; as: 'winner' | 'loser' };
+export type ResolvedMatch = Match & { playerA: string | null; playerB: string | null; ready: boolean; complete: boolean; winner: string | null; loser: string | null; bye: boolean; place?: number; feedA?: Feed; feedB?: Feed };
 type Shape = Pick<Tournament, 'format' | 'qualifiers'>;
 type Bracketed = Pick<Tournament, 'fixture' | 'format' | 'qualifiers'>;
 type Source = { seed: number } | { winner: string } | { loser: string };
@@ -98,10 +100,13 @@ export function resolveFixture(tournament: Bracketed): ResolvedMatch[] {
   const resolved = new Map<string, ResolvedMatch & { vacant: boolean }>();
   // `vacant`: de ahí no va a venir nadie, pase lo que pase. Un pase libre no deja perdedor, y un cruce sin jugadores no deja ganador.
   const from = (source: Source) => {
-    if ('seed' in source) { const player = fixture.seeds[source.seed] ?? null; return { player, settled: true, vacant: !player }; }
+    if ('seed' in source) { const player = fixture.seeds[source.seed] ?? null; return { player, settled: true, vacant: !player, feed: undefined }; }
     const match = resolved.get('winner' in source ? source.winner : source.loser);
     const vacant = Boolean(match && ('winner' in source ? match.vacant : match.bye));
-    return { player: (match && ('winner' in source ? match.winner : match.loser)) ?? null, settled: vacant || Boolean(match?.complete), vacant };
+    // Solo se dice de dónde viene quien falta y efectivamente va a llegar: un lugar vacío es un pase libre, no una espera.
+    const player = (match && ('winner' in source ? match.winner : match.loser)) ?? null;
+    const feed: Feed | undefined = vacant || player ? undefined : 'winner' in source ? { from: source.winner, as: 'winner' } : { from: source.loser, as: 'loser' };
+    return { player, settled: vacant || Boolean(match?.complete), vacant, feed };
   };
   for (const slot of layout(fixture.seeds.length, tournament)) {
     const match = stored.get(slot.id);
@@ -112,7 +117,7 @@ export function resolveFixture(tournament: Bracketed): ResolvedMatch[] {
     const bye = a.vacant || b.vacant;
     const scored = ready && !bye && match.scoreA !== undefined && match.scoreB !== undefined;
     const winner = bye ? ready ? a.player ?? b.player : null : scored ? (match.scoreA! > match.scoreB! ? a.player : b.player) : null;
-    resolved.set(slot.id, { ...match, vacant: a.vacant && b.vacant, playerA: a.player, playerB: b.player, ready, bye, complete: ready && bye || scored, winner, loser: scored ? winner === a.player ? b.player : a.player : null, ...(slot.place ? { place: slot.place } : {}) });
+    resolved.set(slot.id, { ...match, vacant: a.vacant && b.vacant, playerA: a.player, playerB: b.player, ready, bye, complete: ready && bye || scored, winner, loser: scored ? winner === a.player ? b.player : a.player : null, ...(slot.place ? { place: slot.place } : {}), ...(a.feed ? { feedA: a.feed } : {}), ...(b.feed ? { feedB: b.feed } : {}) });
   }
   return [...resolved.values()].map(({ vacant: _vacant, ...match }) => match);
 }

@@ -294,6 +294,8 @@ tbody tr:hover { background: var(--row-hover); }
 .form-stack { display: flex; flex-direction: column; gap: 20px; }
 .form-stack > p { font-size: 14px; line-height: 1.65; }
 .field { display: flex; flex-direction: column; gap: 9px; min-width: 0; font-size: 12px; font-weight: 600; }
+/* La lista desplegable la dibuja el sistema: sin esto, en el tema oscuro sale texto claro sobre fondo blanco. */
+option, optgroup { background-color: var(--field); color: var(--ink); }
 input, select, textarea { width: 100%; min-height: 45px; padding: 11px 12px; border: 1px solid var(--field-line); border-radius: 4px; background: var(--field); color: var(--ink); font-size: 14px; }
 input::placeholder { color: #718092; }
 textarea { min-height: 100px; resize: vertical; }
@@ -759,9 +761,19 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .fixture-round > h4 span { font-family: var(--mono); font-size: 10px; font-weight: 400; opacity: .8; }
 .fixture-board-P .fixture-round > h4 { border-top-color: #8fa3b8; }
 .fixture-board-F .fixture-round > h4 { border-top-color: #f3c74d; }
-.fixture-round-matches { display: flex; flex: 1; flex-direction: column; justify-content: space-around; gap: 22px; }
+.fixture-round-matches { display: flex; flex: 1; flex-direction: column; }
+/* Cada partido ocupa una franja igual de la columna: así el centro de un partido cae justo entre los dos que lo alimentan y los conectores cierran. */
+.fixture-cell { position: relative; flex: 1 1 0; display: flex; align-items: center; padding: 11px 0; }
+.fixture-cell > .fixture-match { width: 100%; }
+.fixture-cell::before, .fixture-cell::after { position: absolute; width: 14px; border: 0 solid var(--dash); pointer-events: none; }
+.round-fed .fixture-cell::before { content: ''; right: 100%; top: 50%; border-top-width: 2px; }
+.round-straight .fixture-cell::after { content: ''; left: 100%; top: 50%; border-top-width: 2px; }
+.round-merge .fixture-cell::after { content: ''; left: 100%; border-right-width: 2px; }
+.round-merge .fixture-cell:nth-child(odd)::after { top: 50%; bottom: 0; border-top-width: 2px; border-top-right-radius: 7px; }
+.round-merge .fixture-cell:nth-child(even)::after { top: 0; bottom: 50%; border-bottom-width: 2px; border-bottom-right-radius: 7px; }
+/* El tramo ya jugado se marca más fuerte: se ve por dónde avanzó cada uno. */
+.fixture-cell.cell-done::after { border-color: var(--rule); }
 .fixture-match { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 11px 11px 12px; background: var(--paper); box-shadow: 0 1px 2px #102e500f; }
-.fixture-round:not(:last-child) .fixture-match::after { content: ''; position: absolute; top: 50%; left: 100%; width: 28px; border-top: 1px solid var(--dash); pointer-events: none; }
 .match-heading { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 8px; }
 .match-status { display: inline-flex; align-items: center; gap: 5px; }
 .match-status-live { color: var(--red-ink); font-weight: 600; }
@@ -772,6 +784,7 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 /* En celular los avatares se ocultan en las tablas; acá son parte de la fila del partido. */
 .match-player .avatar { display: grid; width: 26px; height: 26px; border-radius: 50%; font-size: 9px; }
 .match-player .match-empty { border-style: dashed; border-color: var(--dash); background: transparent; }
+.match-pending { color: var(--muted); font-style: italic; }
 .match-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .match-beads { display: flex; gap: 3px; }
 .match-beads i { width: 6px; height: 6px; border-radius: 50%; background: var(--track); }
@@ -781,6 +794,9 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .match-winner { background: var(--hover); font-weight: 700; }
 .match-winner .match-score { background: var(--gold-metal); color: var(--gold-deep); text-shadow: 0 1px 0 #fff6cf99; }
 .match-winner .match-beads i.on { background: #d9a02a; box-shadow: 0 0 0 1px #8a5a08; }
+/* Un pase libre no es un partido jugado: sin casillas de marcador ni oro. */
+.match-bye .match-score, .match-bye .match-winner .match-score { background: none; color: var(--muted); text-shadow: none; }
+.match-bye { border-left-color: var(--line); background: transparent; box-shadow: none; }
 .match-loser .match-name { color: var(--muted); }
 .match-loser .avatar { opacity: .7; }
 .match-playable { border-color: var(--red-ink); box-shadow: 0 0 0 1px var(--red-ink), 0 6px 16px #ce354322; }

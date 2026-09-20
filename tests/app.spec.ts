@@ -291,6 +291,15 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
     await expect(dialog.getByRole('tabpanel').getByRole('region')).toBeVisible();
   }
   await expect(dialog).toContainText('0/4 partidos disputados');
+  // Cada lugar sin definir dice de qué partido sale, también cuando viene de la otra llave.
+  await dialog.getByRole('tab', { name: /perdedores/i }).click();
+  await expect(dialog.getByRole('article', { name: 'Partido P2-1', exact: true })).toContainText('Ganador de P1-1');
+  await expect(dialog.getByRole('article', { name: 'Partido P2-1', exact: true })).toContainText('Perdedor de G2-1');
+  await expect(dialog.getByRole('article', { name: 'Partido P1-1', exact: true })).toContainText('Perdedor de G1-2');
+  await dialog.getByRole('tab', { name: /Gran final/ }).click();
+  await expect(dialog.getByRole('article', { name: 'Partido F1-1', exact: true })).toContainText('Ganador de G2-1');
+  await dialog.getByRole('tab', { name: /ganadores/i }).click();
+  await expect(dialog.locator('.round-merge .fixture-cell')).toHaveCount(2);
 
   // Con el formato fijado por el fixture, el formulario ya no deja cambiarlo.
   await dialog.getByRole('button', { name: 'Editar torneo' }).click();
