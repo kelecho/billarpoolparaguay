@@ -753,6 +753,7 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .fixture-tab[aria-selected='true'] em { color: #ffc2c8; }
 .fixture-tab-F[aria-selected='true'] { border-top-color: #f3c74d; }
 .fixture-tab-F strong::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; background: var(--gold-metal); box-shadow: 0 0 0 1px var(--gold-deep); }
+.fixture-direct { margin-bottom: 14px; padding: 9px 12px; border-left: 3px solid var(--gold); border-radius: 0 5px 5px 0; background: var(--hover); font-size: 12px; line-height: 1.6; color: var(--ink); }
 .fixture-board { display: flex; gap: 28px; overflow-x: auto; max-width: 100%; padding: 4px 2px 18px; scrollbar-color: var(--muted) var(--hover); }
 .fixture-round { display: flex; flex-direction: column; flex: 0 0 272px; min-width: 0; }
 .fixture-round > h4 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 12px; background: var(--blue); color: var(--on-fill); border-top: 3px solid var(--red); border-radius: 4px; font-size: 14px; margin-bottom: 18px; }
