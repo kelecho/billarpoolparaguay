@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction, createState, localDate, standings, validateState, type State } from './domain';
-import { buildFixture, drawPlayers, fixturePlacements, fixtureSections, hasScoredDescendant, QUALIFIER_OPTIONS, resolveFixture, type Fixture } from './fixture';
+import { buildFixture, drawPlayers, fixtureOutcome, fixturePlacements, fixtureSections, hasScoredDescendant, QUALIFIER_OPTIONS, resolveFixture, type Fixture } from './fixture';
 
 function setup(count = 4, future = false): State {
   let state = createState(false);
@@ -295,5 +295,133 @@ describe('Doble eliminación con fase final', () => {
     expect(() => validateState({ ...state, tournaments: [{ ...state.tournaments[0], format: undefined, qualifiers: undefined }] })).toThrow();
     const swapped = state.tournaments[0].fixture!.matches.map(m => m.id === 'P1-1' ? { ...m, bracket: 'G' as const } : m);
     expect(() => validateState({ ...state, tournaments: [{ ...state.tournaments[0], fixture: { ...state.tournaments[0].fixture!, matches: swapped } }] })).toThrow();
+  });
+});
+
+describe('Tercer puesto y revancha de la gran final', () => {
+  type Options = { format?: 'double'; qualifiers?: number; thirdPlace?: true; finalRematch?: true };
+  const entrants = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`);
+  /** Juega todo lo que esté listo; `pick` elige al ganador de cada partido. */
+  function play(n: number, options: Options, pick: (id: string, a: string, b: string) => string = (_, a) => a) {
+    const fixture: Fixture = buildFixture(entrants(n), options);
+    const tournament = { ...options, fixture };
+    for (let guard = 0; guard < 400; guard++) {
+      const match = resolveFixture(tournament).find(m => m.ready && !m.complete);
+      if (!match) return tournament;
+      const winner = pick(match.id, match.playerA!, match.playerB!);
+      fixture.matches = fixture.matches.map(m => m.id === match.id ? { ...m, scoreA: winner === match.playerA ? 3 : 0, scoreB: winner === match.playerA ? 0 : 3 } : m);
+    }
+    throw new Error('El cuadro no terminó');
+  }
+  const places = (tournament: Parameters<typeof fixturePlacements>[0]) => fixturePlacements(tournament).map(p => p.place).sort((a, b) => a - b);
+
+  it('en eliminación directa los semifinalistas eliminados juegan por el tercer puesto', () => {
+    const tournament = play(8, { thirdPlace: true });
+    const matches = resolveFixture(tournament);
+    expect(matches.map(m => m.id)).toEqual(['1-1', '1-2', '1-3', '1-4', '2-1', '2-2', '3-1', 'T1-1']);
+    const third = matches.at(-1)!;
+    expect([third.playerA, third.playerB]).toEqual([matches[4].loser, matches[5].loser]);
+    expect(places(tournament)).toEqual([1, 2, 3, 4, 5, 5, 5, 5]);
+    expect(fixturePlacements(tournament).find(p => p.place === 3)!.playerId).toBe(third.winner);
+    // El partido por el tercer puesto no es la final: el campeón sigue saliendo de ella, y el cuadro lo dibuja aparte.
+    expect(fixtureOutcome(matches).champion).toBe(matches[6].winner);
+    expect(fixtureSections(matches).map(s => s.rounds.map(r => r.label))).toEqual([['Cuartos de final', 'Semifinales', 'Final']]);
+  });
+
+  it('no deja publicar con la final jugada si falta el tercer puesto', () => {
+    const tournament = play(4, { thirdPlace: true }, (id, a) => a);
+    const fixture = tournament.fixture;
+    fixture.matches = fixture.matches.map(m => m.id === 'T1-1' ? { id: m.id, round: m.round, index: m.index, bracket: m.bracket } : m);
+    // El campeón ya se conoce; lo que espera es la publicación.
+    expect(fixtureOutcome(resolveFixture(tournament))).toEqual({ complete: false, champion: 'p0' });
+    expect(() => fixturePlacements(tournament)).toThrow(/Completá todos los partidos/);
+  });
+
+  it('con tres inscriptos el tercer puesto queda definido por el pase libre, sin partido', () => {
+    const tournament = play(3, { thirdPlace: true });
+    const third = resolveFixture(tournament).at(-1)!;
+    expect(third).toMatchObject({ id: 'T1-1', bye: true, complete: true });
+    expect(places(tournament)).toEqual([1, 2, 3]);
+    expect(() => buildFixture(entrants(2), { thirdPlace: true })).toThrow(/al menos 3 inscriptos/);
+  });
+
+  it('también vale en la fase final de la doble eliminación, no con gran final', () => {
+    const tournament = play(16, { format: 'double', qualifiers: 4, thirdPlace: true });
+    expect(resolveFixture(tournament).at(-1)).toMatchObject({ id: 'T1-1', bracket: 'T', complete: true, winnerPlace: 3, place: 4 });
+    expect(places(tournament)).toEqual([1, 2, 3, 4, 5, 5, 7, 7, 9, 9, 9, 9, 13, 13, 13, 13]);
+    expect(() => buildFixture(entrants(8), { format: 'double', qualifiers: 2, thirdPlace: true })).toThrow(/ya queda definido/);
+  });
+
+  it('si el invicto gana la gran final, la revancha no hace falta', () => {
+    const tournament = play(8, { format: 'double', qualifiers: 2, finalRematch: true });
+    const matches = resolveFixture(tournament);
+    const [final, rematch] = matches.slice(-2);
+    expect(final).toMatchObject({ id: 'F1-1', decisive: true, winner: final.playerA });
+    expect(rematch).toMatchObject({ id: 'F2-1', rematch: true, unneeded: true, complete: true, ready: false, winner: null });
+    expect(fixtureOutcome(matches)).toEqual({ complete: true, champion: final.playerA });
+    expect(places(tournament)).toEqual([1, 2, 3, 4, 5, 5, 7, 7]);
+    expect(fixtureSections(matches).at(-1)).toMatchObject({ title: 'Gran final', rounds: [{ label: 'Final' }, { label: 'Revancha' }] });
+  });
+
+  it('si pierde el invicto se juega la revancha, y el torneo no termina hasta jugarla', () => {
+    // Gana siempre el lado A salvo en la gran final, que la gana quien viene de perdedores.
+    const challenger = (id: string, a: string, b: string) => id === 'F1-1' ? b : a;
+    const fixture = buildFixture(entrants(8), { format: 'double', qualifiers: 2, finalRematch: true });
+    const tournament = { format: 'double' as const, qualifiers: 2, finalRematch: true as const, fixture };
+    for (let guard = 0; guard < 40; guard++) {
+      const match = resolveFixture(tournament).find(m => m.ready && !m.complete && m.id !== 'F2-1');
+      if (!match) break;
+      const winner = challenger(match.id, match.playerA!, match.playerB!);
+      fixture.matches = fixture.matches.map(m => m.id === match.id ? { ...m, scoreA: winner === match.playerA ? 3 : 0, scoreB: winner === match.playerA ? 0 : 3 } : m);
+    }
+    let matches = resolveFixture(tournament);
+    const [final, rematch] = matches.slice(-2);
+    expect(final.winner).toBe(final.playerB);
+    // El invicto perdió, pero es su primera derrota: todavía no tiene puesto y nadie es campeón.
+    expect(final.place).toBeUndefined();
+    expect(rematch).toMatchObject({ ready: true, complete: false, playerA: final.playerA, playerB: final.playerB });
+    expect(fixtureOutcome(matches)).toEqual({ complete: false, champion: null });
+    expect(() => fixturePlacements(tournament)).toThrow(/Completá todos los partidos/);
+    // Corregir la gran final con la revancha ya cargada cambiaría si hacía falta: primero hay que quitarla.
+    fixture.matches = fixture.matches.map(m => m.id === 'F2-1' ? { ...m, scoreA: 3, scoreB: 1 } : m);
+    expect(hasScoredDescendant(tournament, 'F1-1')).toBe(true);
+    matches = resolveFixture(tournament);
+    expect(fixtureOutcome(matches)).toEqual({ complete: true, champion: final.playerA });
+    const result = fixturePlacements(tournament);
+    expect(result.filter(p => p.place <= 2)).toEqual([{ playerId: final.playerA, place: 1 }, { playerId: final.playerB, place: 2 }]);
+    expect(result.map(p => p.playerId).sort()).toEqual(entrants(8).sort());
+  });
+
+  it('con cualquier cantidad de inscriptos cada jugador recibe un solo puesto, gane quien gane', () => {
+    for (let n = 3; n <= 33; n++) {
+      for (const upset of [false, true]) {
+        const tournament = play(n, { format: 'double', qualifiers: 2, finalRematch: true }, (id, a, b) => (id === 'F1-1') === upset ? b : a);
+        const result = fixturePlacements(tournament);
+        expect(result.map(p => p.playerId).sort(), `${n} inscriptos`).toEqual(entrants(n).sort());
+        expect(result.filter(p => p.place <= 3).map(p => p.place).sort(), `${n} inscriptos`).toEqual([1, 2, 3]);
+      }
+      if (n >= 3) expect(places(play(n, { thirdPlace: true })).slice(0, 3), `${n} inscriptos`).toEqual([1, 2, 3]);
+    }
+  });
+
+  it('cada opción se ofrece solo donde tiene sentido y queda fija con el fixture armado', () => {
+    expect(() => buildFixture(entrants(8), { finalRematch: true })).toThrow(/revancha/);
+    expect(() => buildFixture(entrants(16), { format: 'double', qualifiers: 4, finalRematch: true })).toThrow(/revancha/);
+    let state = setup(6);
+    const edit = (changes: object) => applyAction(state, { type: 'tournament.save', tournament: { ...state.tournaments[0], ...changes } });
+    // El formulario manda lo que esté tildado; el dominio se queda con lo que corresponde al formato.
+    expect(edit({ thirdPlace: true, finalRematch: true }).tournaments[0]).toMatchObject({ thirdPlace: true });
+    expect(edit({ thirdPlace: true, finalRematch: true }).tournaments[0].finalRematch).toBeUndefined();
+    state = edit({ format: 'double', qualifiers: 2, thirdPlace: true, finalRematch: true });
+    expect(state.tournaments[0]).toMatchObject({ finalRematch: true });
+    expect(state.tournaments[0].thirdPlace).toBeUndefined();
+    state = generate(state);
+    expect(state.tournaments[0].fixture!.matches.at(-1)).toMatchObject({ id: 'F2-1', bracket: 'F', round: 1 });
+    expect(() => edit({ finalRematch: undefined })).toThrow(/formato/);
+    state = finish(state);
+    state = applyAction(state, { type: 'fixture.publish', tournamentId: 'cup' });
+    expect([...state.tournaments[0].results].sort((a, b) => a.place - b.place).map(r => r.points)).toEqual([300, 200, 150, 100, 60, 60]);
+    expect(() => validateState({ ...state, tournaments: [{ ...state.tournaments[0], finalRematch: undefined }] })).toThrow();
+    expect(() => validateState({ ...state, tournaments: [{ ...state.tournaments[0], format: undefined, qualifiers: undefined }] })).toThrow();
   });
 });

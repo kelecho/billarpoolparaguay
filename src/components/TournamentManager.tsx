@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ImagePlus, Pencil, Share2, Shuffle } from 'lucide-react';
 import { dateLabel, localDate, standings, type Action, type State, type Tournament } from '../domain';
-import { drawPlayers, resolveFixture } from '../fixture';
+import { drawPlayers, fixtureOutcome, resolveFixture } from '../fixture';
 import BannerField from './BannerField';
 import CategoryBadge from './CategoryBadge';
 import ConfirmButton from './ConfirmButton';
@@ -24,7 +24,7 @@ export default function TournamentManager({ tournament: t, state, canEdit, live 
   const matches = resolveFixture(t);
   const finished = t.results.length > 0;
   const started = matches.some(m => m.scoreA !== undefined);
-  const finalReady = Boolean(matches.at(-1)?.complete);
+  const finalReady = fixtureOutcome(matches).complete;
   const save = async (action: Action) => {
     if (busy) return false;
     setBusy(true);
@@ -49,7 +49,7 @@ export default function TournamentManager({ tournament: t, state, canEdit, live 
     </div>}
     <div className="tournament-summary">
       {t.category && <CategoryBadge category={t.category} rules={state.rules} large />}
-      <div><p>{dateLabel(t.date)} · {t.discipline}</p><p className="muted">{t.venue}</p>{t.category && <p className="muted small">{t.format === 'double' ? `Doble eliminación · ${t.qualifiers === 2 ? 'gran final a partido único' : `${t.qualifiers} clasifican a la fase final`}` : 'Eliminación directa'} · Primero en llegar a {t.raceTo ?? 5} partidas · {registered.length} inscriptos</p>}</div>
+      <div><p>{dateLabel(t.date)} · {t.discipline}</p><p className="muted">{t.venue}</p>{t.category && <p className="muted small">{t.format === 'double' ? `Doble eliminación · ${t.qualifiers === 2 ? t.finalRematch ? 'gran final con revancha' : 'gran final a partido único' : `${t.qualifiers} clasifican a la fase final`}` : 'Eliminación directa'}{t.thirdPlace && ' · con partido por el tercer puesto'} · Primero en llegar a {t.raceTo ?? 5} partidas · {registered.length} inscriptos</p>}</div>
     </div>
     <div className="modal-actions">
       {canEdit && !finished && <button className="button" disabled={busy} onClick={onEdit}><Pencil size={15} />Editar torneo</button>}
@@ -70,7 +70,7 @@ export default function TournamentManager({ tournament: t, state, canEdit, live 
       <button className="button primary" disabled={busy || registered.length < 2} onClick={() => generate()}><Shuffle size={17} />{method === 'random' ? 'Realizar sorteo inicial' : 'Generar emparejamientos'}</button>
     </section>}
     {!reveal && t.fixture && <section className="form-stack">
-      <div className="fixture-title"><div><h3>Fixture{live && <span className="live-tag"><span aria-hidden="true" />En vivo</span>}</h3><p className="muted small">{t.fixture.draw === 'random' ? 'Sorteo aleatorio' : t.fixture.draw === 'ranking' ? 'Cabezas de serie por ranking' : 'Armado manual'} · {matches.filter(m => m.complete && !m.bye).length}/{matches.filter(m => !m.bye).length} partidos disputados{live && ' · Los marcadores se actualizan solos'}</p>{t.fixture.draw === 'random' && <button className="text-button" type="button" onClick={() => setReveal(true)}><Shuffle size={14} />Ver el sorteo otra vez</button>}</div>
+      <div className="fixture-title"><div><h3>Fixture{live && <span className="live-tag"><span aria-hidden="true" />En vivo</span>}</h3><p className="muted small">{t.fixture.draw === 'random' ? 'Sorteo aleatorio' : t.fixture.draw === 'ranking' ? 'Cabezas de serie por ranking' : 'Armado manual'} · {matches.filter(m => m.complete && !m.bye && !m.unneeded).length}/{matches.filter(m => !m.bye && !m.unneeded).length} partidos disputados{live && ' · Los marcadores se actualizan solos'}</p>{t.fixture.draw === 'random' && <button className="text-button" type="button" onClick={() => setReveal(true)}><Shuffle size={14} />Ver el sorteo otra vez</button>}</div>
         {canEdit && !finished && !started && <div className="modal-actions"><ConfirmButton disabled={busy} confirmLabel="Confirmar nuevo sorteo" onConfirm={() => generate('random')}>Volver a sortear</ConfirmButton><ConfirmButton disabled={busy} confirmLabel="Confirmar: quitar fixture" onConfirm={() => void save({ type: 'fixture.reset', tournamentId: t.id })}>Quitar fixture y editar inscripciones</ConfirmButton></div>}
       </div>
       {canEdit && !finished && !started && <p className="muted small">Un nuevo sorteo reemplaza los cruces y la programación. Después del primer resultado, el sorteo queda cerrado.</p>}

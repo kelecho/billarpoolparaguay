@@ -9,6 +9,9 @@ import Field from './Field';
 export default function TournamentForm({ tournament, state, submit }: { tournament?: Tournament; state: State; submit: (action: Action) => void }) {
   const [format, setFormat] = useState<Format>(tournament?.format ?? 'single');
   const locked = Boolean(tournament?.fixture);
+  const [qualifiers, setQualifiers] = useState(tournament?.qualifiers ?? 2);
+  // Con gran final (doble eliminación y 2 clasificados) la opción es la revancha; donde hay semifinales, el tercer puesto.
+  const grandFinal = format === 'double' && qualifiers === 2;
   const [banner, setBanner] = useState(tournament?.banner);
   const [processing, setProcessing] = useState(false);
   function save(e: FormEvent<HTMLFormElement>) {
@@ -26,7 +29,8 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         category: String(data.get('category') ?? tournament?.category ?? '') || undefined,
         raceTo: Number(data.get('raceTo') ?? tournament?.raceTo ?? 5),
         ...(banner ? { banner } : {}),
-        ...(format === 'double' ? { format, qualifiers: Number(data.get('qualifiers') ?? tournament?.qualifiers ?? 2) } : {}),
+        ...(format === 'double' ? { format, qualifiers } : {}),
+        ...(grandFinal ? (data.get('finalRematch') ?? (locked && tournament?.finalRematch) ? { finalRematch: true } : {}) : (data.get('thirdPlace') ?? (locked && tournament?.thirdPlace) ? { thirdPlace: true } : {})),
         results: [],
       },
     });
@@ -46,11 +50,14 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
       </div>
       <div className="form-grid">
         <Field label="Formato"><select value={format} disabled={locked} onChange={e => setFormat(e.target.value as Format)}><option value="single">Eliminación directa</option><option value="double">Doble eliminación</option></select></Field>
-        {format === 'double' && <Field label="Clasifican a la fase final"><select name="qualifiers" disabled={locked} defaultValue={tournament?.qualifiers ?? 2}>{QUALIFIER_OPTIONS.map(n => <option key={n} value={n}>{n === 2 ? '2 · solo la gran final' : `${n} jugadores`}</option>)}</select></Field>}
+        {format === 'double' && <Field label="Clasifican a la fase final"><select name="qualifiers" disabled={locked} value={qualifiers} onChange={e => setQualifiers(Number(e.target.value))}>{QUALIFIER_OPTIONS.map(n => <option key={n} value={n}>{n === 2 ? '2 · solo la gran final' : `${n} jugadores`}</option>)}</select></Field>}
       </div>
       <p className="muted small">{format === 'double'
         ? 'Quien pierde en la llave de ganadores sigue en la de perdedores; la segunda derrota elimina. La mitad de los clasificados llega invicta y la otra mitad con una derrota, y la fase final se juega por eliminación directa a partido único.'
         : 'Eliminación directa, con sorteo inicial, pases libres y fixture hasta la final.'}</p>
+      {grandFinal
+        ? <label className="check" key="rematch"><input name="finalRematch" type="checkbox" disabled={locked} defaultChecked={tournament?.finalRematch} /><span>Revancha en la gran final: si pierde el invicto, juegan un partido más</span></label>
+        : <label className="check" key="third"><input name="thirdPlace" type="checkbox" disabled={locked} defaultChecked={tournament?.thirdPlace} /><span>Partido por el tercer puesto entre quienes pierden las semifinales</span></label>}
       <Field label="Sede y ciudad"><input name="venue" defaultValue={tournament?.venue} required maxLength={150} /></Field>
       <BannerField banner={banner} onChange={setBanner} onBusy={setProcessing} />
       <button className="button primary" type="submit">Guardar torneo</button>

@@ -427,6 +427,28 @@ describe('Tablas por entidad', () => {
     expect((await call('GET', '/api/state')).data.state).toEqual(scored.data.state);
   });
 
+  it('guarda las opciones de la definición y devuelve en orden el tercer puesto y la revancha', async () => {
+    await login();
+    let state = createState(false);
+    const send = (action: Action) => { state = applyAction(state, action, '2030-01-01'); };
+    const entrants = Array.from({ length: 5 }, (_, i) => `j${i}`);
+    for (const id of entrants) send({ type: 'player.save', player: { id, name: `Jugador ${id}`, city: 'Asunción', club: '', initialPoints: 0, category: 'Tercera' } });
+    const base = { date: '2025-03-01', venue: 'Club', discipline: 'Bola 8' as const, category: 'Tercera', raceTo: 2, results: [] };
+    send({ type: 'tournament.save', tournament: { ...base, id: 'tercero', name: 'Con tercer puesto', thirdPlace: true } });
+    send({ type: 'tournament.save', tournament: { ...base, id: 'revancha', name: 'Con revancha', format: 'double', qualifiers: 2, finalRematch: true } });
+    for (const tournamentId of ['tercero', 'revancha']) {
+      send({ type: 'registration.save', tournamentId, playerIds: entrants });
+      send({ type: 'fixture.generate', tournamentId, playerIds: entrants, draw: 'ranking' });
+    }
+    expect((await call('PUT', '/api/state', { state, version: 0 })).status).toBe(200);
+    const stored = (await call('GET', '/api/state')).data.state;
+    expect(stored.tournaments).toEqual(state.tournaments);
+    expect(stored.tournaments[0]).toMatchObject({ thirdPlace: true });
+    expect(stored.tournaments[0].fixture.matches.at(-1)).toMatchObject({ id: 'T1-1', bracket: 'T' });
+    expect(stored.tournaments[1]).toMatchObject({ finalRematch: true });
+    expect(stored.tournaments[1].fixture.matches.slice(-2).map((m: { id: string }) => m.id)).toEqual(['F1-1', 'F2-1']);
+  });
+
   it('restaura un respaldo grande con pocas consultas', async () => {
     await login();
     const state = createState(false);

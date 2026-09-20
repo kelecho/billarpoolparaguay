@@ -1,18 +1,28 @@
 import type { Tournament } from './domain';
 
-/** G: llave de ganadores, P: llave de perdedores, F: fase final. La eliminación directa no usa llaves. */
-export type Bracket = 'G' | 'P' | 'F';
+/** G: llave de ganadores, P: llave de perdedores, F: fase final, T: partido por el tercer puesto. La eliminación directa solo usa T. */
+export type Bracket = 'G' | 'P' | 'F' | 'T';
 export type Format = 'single' | 'double';
 export type Match = { id: string; round: number; index: number; bracket?: Bracket; scoreA?: number; scoreB?: number; table?: string; time?: string };
 export type Fixture = { draw?: 'random' | 'ranking' | 'manual'; seeds: (string | null)[]; matches: Match[] };
 /** `place`: puesto de quien pierde el partido y queda eliminado; en la llave de ganadores nadie queda eliminado. */
 /** De qué partido sale un jugador que todavía no está definido. */
 export type Feed = { from: string; as: 'winner' | 'loser' };
-export type ResolvedMatch = Match & { playerA: string | null; playerB: string | null; ready: boolean; complete: boolean; winner: string | null; loser: string | null; bye: boolean; place?: number; feedA?: Feed; feedB?: Feed };
-type Shape = Pick<Tournament, 'format' | 'qualifiers'>;
-type Bracketed = Pick<Tournament, 'fixture' | 'format' | 'qualifiers'>;
+export type ResolvedMatch = Match & {
+  playerA: string | null; playerB: string | null; ready: boolean; complete: boolean; winner: string | null; loser: string | null; bye: boolean; place?: number; feedA?: Feed; feedB?: Feed;
+  /** Puesto de quien gana: solo en el partido por el tercer puesto. */
+  winnerPlace?: number;
+  /** Define al campeón: la final y, si la hay, su revancha. */
+  decisive?: boolean;
+  /** Es la revancha de la gran final, que solo se juega si pierde el invicto. */
+  rematch?: boolean;
+  /** La revancha no hizo falta: el invicto ganó la gran final. */
+  unneeded?: boolean;
+};
+type Shape = Pick<Tournament, 'format' | 'qualifiers' | 'thirdPlace' | 'finalRematch'>;
+type Bracketed = Shape & Pick<Tournament, 'fixture'>;
 type Source = { seed: number } | { winner: string } | { loser: string };
-type Slot = { id: string; round: number; index: number; bracket?: Bracket; a: Source; b: Source; place?: number };
+type Slot = { id: string; round: number; index: number; bracket?: Bracket; a: Source; b: Source; place?: number; winnerPlace?: number; decisive?: boolean; rematchOf?: string };
 export const MAX_ENTRANTS = 128;
 export const QUALIFIER_OPTIONS = [2, 4, 8, 16, 32];
 
@@ -24,7 +34,22 @@ export const QUALIFIER_OPTIONS = [2, 4, 8, 16, 32];
  * quedan `qualifiers` jugadores —la mitad invictos, la mitad con una derrota— y ellos definen el torneo por eliminación
  * directa. Con dos clasificados esa fase es la gran final a partido único.
  */
-function layout(size: number, { format, qualifiers = 2 }: Shape): Slot[] {
+function layout(size: number, shape: Shape): Slot[] {
+  const slots = mainLayout(size, shape);
+  const final = slots.at(-1)!;
+  final.decisive = true;
+  // Tercer puesto: los dos que pierden las semifinales juegan entre sí en vez de compartir el puesto.
+  if (shape.thirdPlace) {
+    const semifinals = slots.filter(slot => slot.bracket === final.bracket && slot.round === final.round - 1);
+    for (const semifinal of semifinals) delete semifinal.place;
+    slots.push({ id: 'T1-1', round: 0, index: 0, bracket: 'T', a: { loser: semifinals[0].id }, b: { loser: semifinals[1].id }, place: 4, winnerPlace: 3 });
+  }
+  // Revancha: si el invicto pierde la gran final recién tiene su primera derrota, y los mismos dos juegan otra vez.
+  if (shape.finalRematch) slots.splice(slots.indexOf(final) + 1, 0, { id: 'F2-1', round: 1, index: 0, bracket: 'F', a: final.a, b: final.b, place: 2, decisive: true, rematchOf: final.id });
+  return slots;
+}
+
+function mainLayout(size: number, { format, qualifiers = 2 }: Shape): Slot[] {
   const knockout = (bracket: Bracket | undefined, rounds: number, first: (index: number) => [Source, Source], place?: (round: number) => number) => {
     const slots: Slot[] = [];
     const id = (round: number, index: number) => `${bracket ?? ''}${round + 1}-${index + 1}`;
@@ -86,6 +111,9 @@ export function buildFixture(players: string[], shape: Shape = {}): Fixture {
     if (!QUALIFIER_OPTIONS.includes(qualifiers)) throw new Error('Elegí cuántos jugadores clasifican a la fase final.');
     if (qualifiers > size / 2) throw new Error(`Con ${players.length} inscriptos pueden clasificar a la fase final hasta ${size / 2} jugadores. Cambialo desde «Editar torneo».`);
   }
+  const knockout = shape.format === 'double' ? shape.qualifiers ?? 2 : size;
+  if (shape.finalRematch && (shape.format !== 'double' || knockout !== 2)) throw new Error('La revancha de la final es para la doble eliminación con gran final, sin fase final de eliminación directa.');
+  if (shape.thirdPlace && knockout < 4) throw new Error(shape.format === 'double' ? 'Con gran final el tercer puesto ya queda definido en la llave de perdedores.' : 'El partido por el tercer puesto necesita al menos 3 inscriptos.');
   let order = [1, 2];
   while (order.length < size) order = order.flatMap(seed => [seed, order.length * 2 + 1 - seed]);
   const seeds = order.map(seed => players[seed - 1] ?? null);
@@ -112,21 +140,42 @@ export function resolveFixture(tournament: Bracketed): ResolvedMatch[] {
     const match = stored.get(slot.id);
     if (!match) continue;
     const [a, b] = [from(slot.a), from(slot.b)];
-    const ready = a.settled && b.settled;
+    // La revancha espera a la gran final: se juega solo si la ganó quien venía de perdedores (el lado B).
+    const first = slot.rematchOf ? resolved.get(slot.rematchOf) : undefined;
+    const unneeded = Boolean(first?.complete && first.winner === first.playerA);
+    const ready = a.settled && b.settled && (!slot.rematchOf || Boolean(first?.complete && !unneeded));
     // Un lugar vacío es un pase libre, y se sabe desde el sorteo aunque el rival todavía no esté definido.
     const bye = a.vacant || b.vacant;
     const scored = ready && !bye && match.scoreA !== undefined && match.scoreB !== undefined;
     const winner = bye ? ready ? a.player ?? b.player : null : scored ? (match.scoreA! > match.scoreB! ? a.player : b.player) : null;
-    resolved.set(slot.id, { ...match, vacant: a.vacant && b.vacant, playerA: a.player, playerB: b.player, ready, bye, complete: ready && bye || scored, winner, loser: scored ? winner === a.player ? b.player : a.player : null, ...(slot.place ? { place: slot.place } : {}), ...(a.feed ? { feedA: a.feed } : {}), ...(b.feed ? { feedB: b.feed } : {}) });
+    // Con revancha, quien pierde la gran final viniendo invicto todavía no está eliminado.
+    const rematched = slot.decisive && !slot.rematchOf && tournament.finalRematch;
+    const loser = scored ? winner === a.player ? b.player : a.player : null;
+    const place = rematched && loser === a.player ? undefined : slot.place;
+    resolved.set(slot.id, { ...match, vacant: a.vacant && b.vacant, playerA: a.player, playerB: b.player, ready, bye, complete: ready && bye || scored || unneeded, winner, loser, ...(place ? { place } : {}), ...(slot.winnerPlace ? { winnerPlace: slot.winnerPlace } : {}), ...(slot.decisive ? { decisive: true } : {}), ...(slot.rematchOf ? { rematch: true } : {}), ...(unneeded ? { unneeded: true } : {}), ...(a.feed ? { feedA: a.feed } : {}), ...(b.feed ? { feedB: b.feed } : {}) });
   }
   return [...resolved.values()].map(({ vacant: _vacant, ...match }) => match);
 }
 
+/**
+ * El campeón queda definido cuando se resuelven la final y su revancha, aunque falte el partido por el tercer puesto;
+ * el torneo recién está completo, y se puede publicar, cuando no queda ningún partido por jugar.
+ */
+export function fixtureOutcome(matches: ResolvedMatch[]): { complete: boolean; champion: string | null } {
+  const decisive = matches.filter(m => m.decisive);
+  const decided = decisive.length > 0 && decisive.every(m => m.complete);
+  return { complete: matches.length > 0 && matches.every(m => m.complete), champion: decided ? decisive.filter(m => m.winner).at(-1)?.winner ?? null : null };
+}
+
 export function fixturePlacements(tournament: Bracketed): { playerId: string; place: number }[] {
   const matches = resolveFixture(tournament);
-  const final = matches.at(-1);
-  if (!final?.complete || !final.winner) throw new Error('Completá todos los partidos antes de publicar los resultados.');
-  return [{ playerId: final.winner, place: 1 }, ...matches.filter(m => m.loser && m.place).map(m => ({ playerId: m.loser!, place: m.place! }))];
+  const { complete, champion } = fixtureOutcome(matches);
+  if (!complete || !champion) throw new Error('Completá todos los partidos antes de publicar los resultados.');
+  return [
+    { playerId: champion, place: 1 },
+    ...matches.filter(m => m.winner && m.winnerPlace).map(m => ({ playerId: m.winner!, place: m.winnerPlace! })),
+    ...matches.filter(m => m.loser && m.place).map(m => ({ playerId: m.loser!, place: m.place! })),
+  ];
 }
 
 export const roundLabel = (round: number, rounds: number) => {
@@ -134,17 +183,16 @@ export const roundLabel = (round: number, rounds: number) => {
   return remaining === 1 ? 'Final' : remaining === 2 ? 'Semifinales' : remaining === 3 ? 'Cuartos de final' : remaining === 4 ? 'Octavos de final' : `Ronda ${round + 1}`;
 };
 
-/** Agrupa el cuadro para dibujarlo: una sección en eliminación directa; ganadores, perdedores y fase final en doble eliminación. */
+/** Agrupa el cuadro para dibujarlo: una sección en eliminación directa; ganadores, perdedores y fase final en doble eliminación. El tercer puesto se dibuja aparte. */
 export function fixtureSections(matches: ResolvedMatch[]) {
-  const titles: Record<Bracket, string> = { G: 'Llave de ganadores', P: 'Llave de perdedores', F: matches.filter(m => m.bracket === 'F').length > 1 ? 'Fase final' : 'Gran final' };
-  return [undefined, 'G', 'P', 'F'].map(bracket => matches.filter(m => m.bracket === bracket)).filter(group => group.length).map(group => {
-    const bracket = group[0].bracket;
+  const finals = matches.filter(m => m.bracket === 'F');
+  const grandFinal = finals.filter(m => !m.rematch).length === 1;
+  const titles = { G: 'Llave de ganadores', P: 'Llave de perdedores', F: grandFinal ? 'Gran final' : 'Fase final' };
+  return ([undefined, 'G', 'P', 'F'] as const).map(bracket => matches.filter(m => m.bracket === bracket)).filter(group => group.length).map(group => {
+    const bracket = group[0].bracket as 'G' | 'P' | 'F' | undefined;
     const rounds = group.at(-1)!.round + 1;
-    return {
-      bracket,
-      title: bracket && titles[bracket],
-      rounds: Array.from({ length: rounds }, (_, round) => ({ label: bracket === 'G' || bracket === 'P' ? `Ronda ${round + 1}` : roundLabel(round, rounds), matches: group.filter(m => m.round === round) })),
-    };
+    const label = (round: number) => bracket === 'G' || bracket === 'P' ? `Ronda ${round + 1}` : bracket === 'F' && grandFinal ? round ? 'Revancha' : 'Final' : roundLabel(round, rounds);
+    return { bracket, title: bracket && titles[bracket], rounds: Array.from({ length: rounds }, (_, round) => ({ label: label(round), matches: group.filter(m => m.round === round) })) };
   });
 }
 
@@ -157,7 +205,7 @@ export function hasScoredDescendant(tournament: Bracketed, matchId: string): boo
   const reached = new Set([matchId]);
   // El cuadro está ordenado: todo partido aparece después de los que lo alimentan.
   for (const slot of slots) {
-    if ([slot.a, slot.b].some(source => !('seed' in source) && reached.has('winner' in source ? source.winner : source.loser))) reached.add(slot.id);
+    if ((slot.rematchOf && reached.has(slot.rematchOf)) || [slot.a, slot.b].some(source => !('seed' in source) && reached.has('winner' in source ? source.winner : source.loser))) reached.add(slot.id);
   }
   reached.delete(matchId);
   return [...reached].some(id => scored.has(id));
@@ -188,7 +236,7 @@ export function validateFixture(tournament: Tournament) {
   const matches = resolveFixture(tournament);
   if (matches.some(m => m.scoreA !== undefined && (!m.ready || m.bye))) return fail();
   // En la primera ronda no se admiten cruces vacíos; en la llave de perdedores sí pueden darse, por los pases libres.
-  if (matches.some(m => m.round === 0 && m.bracket !== 'P' && m.bracket !== 'F' && !m.playerA && !m.playerB)) return fail();
+  if (matches.some(m => m.round === 0 && (m.bracket === undefined || m.bracket === 'G') && !m.playerA && !m.playerB)) return fail();
   if (tournament.results.length) {
     const placements = fixturePlacements(tournament);
     if (placements.length !== tournament.results.length || placements.some(p => !tournament.results.some(r => r.playerId === p.playerId && r.place === p.place))) return fail();

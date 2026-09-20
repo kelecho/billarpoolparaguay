@@ -137,11 +137,14 @@ Para pasar datos del modo local al compartido: exportar el respaldo en el navega
 - Los pases libres se propagan solos por la llave de perdedores y se marcan desde el sorteo.
 - Puestos: los eliminados en una misma ronda de perdedores comparten puesto, detrás de los clasificados y de quienes caen después (con 16 inscriptos y 8 clasificados: 13.º y 9.º en perdedores; 5.º, 3.º, 2.º y 1.º en la fase final). Con gran final única hay 3.º y 4.º puesto propios. Los puntos salen de la tabla de Configuración según el puesto; más allá del 8.º vale la participación.
 - Corregir un marcador de ganadores afecta a las dos llaves: antes hay que quitar los resultados que dependen de él, en cualquiera de las dos.
-- El formato y los clasificados quedan fijos cuando se arma el fixture. Hacen falta al menos 3 inscriptos.
+- **Revancha de la gran final** (opcional, con 2 clasificados): si la gran final la gana quien viene de perdedores, es la primera derrota del invicto, así que los mismos dos juegan un partido más y ese define al campeón. Si gana el invicto, la revancha no hace falta y figura así en el cuadro. El torneo no se puede publicar mientras la revancha esté pendiente, y para corregir la gran final con la revancha ya cargada primero hay que quitarla.
+- El formato, los clasificados y estas opciones quedan fijos cuando se arma el fixture. Hacen falta al menos 3 inscriptos.
 
 El cuadro no se guarda: `src/fixture.ts` lo deduce del tamaño y del formato (`layout`), así un respaldo no puede traer cruces inventados. Las pruebas juegan torneos completos con 3 a 64 inscriptos y todas las fases finales posibles.
 
-**Eliminación directa.** Sin partido por el tercer puesto: ambos semifinalistas eliminados comparten el tercero; los eliminados en cuartos comparten el quinto, y así sucesivamente. Un partido disputado bloquea nuevos sorteos y cambios de inscriptos. En el modo compartido, solo las cuentas con sesión modifican; el público consulta inscritos, cruces, horarios y resultados.
+**Partido por el tercer puesto** (opcional, en eliminación directa y en la fase final de la doble eliminación con 4 o más clasificados): quienes pierden las semifinales juegan entre sí por el 3.º y el 4.º en vez de compartir el tercero. Se dibuja debajo de la llave. El campeón se conoce al terminar la final, pero el torneo se publica recién cuando también está jugado este partido. Con 3 inscriptos una semifinal es un pase libre, así que el tercero queda definido sin jugar. Con gran final no aplica: el tercer puesto ya sale de la llave de perdedores.
+
+**Eliminación directa.** Sin la opción anterior no hay partido por el tercer puesto: ambos semifinalistas eliminados comparten el tercero; los eliminados en cuartos comparten el quinto, y así sucesivamente. Un partido disputado bloquea nuevos sorteos y cambios de inscriptos. En el modo compartido, solo las cuentas con sesión modifican; el público consulta inscritos, cruces, horarios y resultados.
 
 ## Reglas del ranking
 

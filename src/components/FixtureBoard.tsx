@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Check, Clock, Trophy } from 'lucide-react';
 import { localDate, type Action, type State, type Tournament } from '../domain';
-import { fixtureSections, resolveFixture, type Feed, type ResolvedMatch } from '../fixture';
+import { fixtureOutcome, fixtureSections, resolveFixture, type Feed, type ResolvedMatch } from '../fixture';
 import Avatar from './Avatar';
 import Field from './Field';
 import ConfirmButton from './ConfirmButton';
@@ -28,8 +28,8 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
     ? <span className="match-beads" aria-hidden="true">{Array.from({ length: target }, (_, i) => <i key={i} className={i < (score ?? 0) ? 'on' : undefined} />)}</span>
     : null;
   return (
-    <article className={`fixture-match${m.complete ? ' match-complete' : ''}${m.bye ? ' match-bye' : ''}${playable ? ' match-playable' : ''}${final ? ' match-final' : ''}`} aria-label={`Partido ${m.id}`}>
-      <div className="match-heading"><span>Partido {m.id}</span>{m.bye ? <span>Pase libre</span> : m.complete ? <span className="match-status match-status-done"><Check size={13} aria-label="Finalizado" /></span> : <span className={`match-status${playable ? ' match-status-live' : ''}`}>{m.ready ? 'Por jugar' : 'En espera'}</span>}</div>
+    <article className={`fixture-match${m.complete ? ' match-complete' : ''}${m.bye || m.unneeded ? ' match-bye' : ''}${playable ? ' match-playable' : ''}${final ? ' match-final' : ''}`} aria-label={`Partido ${m.id}`}>
+      <div className="match-heading"><span>Partido {m.id}</span>{m.bye ? <span>Pase libre</span> : m.unneeded ? <span>No hizo falta</span> : m.complete ? <span className="match-status match-status-done"><Check size={13} aria-label="Finalizado" /></span> : <span className={`match-status${playable ? ' match-status-live' : ''}`}>{m.ready ? 'Por jugar' : m.rematch ? 'Si pierde el invicto' : 'En espera'}</span>}</div>
       {[{ id: m.playerA, score: m.scoreA, feed: m.feedA }, { id: m.playerB, score: m.scoreB, feed: m.feedB }].map((p, i) => {
         const player = state.players.find(x => x.id === p.id);
         const won = Boolean(p.id) && p.id === m.winner;
@@ -42,7 +42,7 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
         );
       })}
       {(m.table || m.time) && <p className="match-schedule"><Clock size={12} />{[m.table && `Mesa ${m.table}`, m.time && `${m.time} h`].filter(Boolean).join(' · ')}</p>}
-      {editable && !m.bye && <div className="match-actions">
+      {editable && !m.bye && !m.unneeded && <div className="match-actions">
         {m.ready && <button className="text-button" disabled={busy || t.date > localDate()} onClick={() => setEditing(!editing)}>{m.complete ? 'Editar resultado' : 'Cargar resultado'}</button>}
         <button className="text-button" disabled={busy} onClick={() => setScheduling(!scheduling)}>Mesa y horario</button>
       </div>}
@@ -63,15 +63,16 @@ function MatchCard({ match: m, tournament: t, state, editable, busy, final, subm
 
 export default function FixtureBoard({ tournament, state, canEdit, busy, submit }: { tournament: Tournament; state: State; canEdit: boolean; busy: boolean; submit: Submit }) {
   const matches = resolveFixture(tournament);
-  const final = matches.at(-1);
+  const { champion } = fixtureOutcome(matches);
   const sections = fixtureSections(matches);
+  const thirdPlace = matches.filter(m => m.bracket === 'T');
   const tabs = useId();
   // Se abre en la llave que tiene partidos por jugar; con el torneo definido, en la final.
-  const [open, setOpen] = useState(() => (final?.complete ? sections.at(-1) : sections.find(s => s.rounds.some(r => r.matches.some(m => m.ready && !m.complete))) ?? sections[0])?.bracket);
+  const [open, setOpen] = useState(() => (champion ? sections.at(-1) : sections.find(s => s.rounds.some(r => r.matches.some(m => m.ready && !m.complete))) ?? sections[0])?.bracket);
   const shown = sections.find(s => s.bracket === open) ?? sections[0];
-  const count = (list: ResolvedMatch[]) => `${list.filter(m => m.complete && !m.bye).length}/${list.filter(m => !m.bye).length}`;
+  const count = (list: ResolvedMatch[]) => `${list.filter(m => m.complete && !m.bye && !m.unneeded).length}/${list.filter(m => !m.bye && !m.unneeded).length}`;
   return <>
-    {final?.complete && final.winner && <div className="fixture-champion"><Trophy size={26} /><span><small>Ganador del torneo</small><strong>{state.players.find(p => p.id === final.winner)?.name}</strong></span></div>}
+    {champion && <div className="fixture-champion"><Trophy size={26} /><span><small>Ganador del torneo</small><strong>{state.players.find(p => p.id === champion)?.name}</strong></span></div>}
     {sections.length > 1 && <div className="fixture-tabs" role="tablist" aria-label="Llaves del torneo">
       {sections.map(section => {
         const all = section.rounds.flatMap(r => r.matches);
@@ -92,9 +93,14 @@ export default function FixtureBoard({ tournament, state, canEdit, busy, submit 
           const link = next === round.matches.length ? ' round-straight' : next !== undefined && next * 2 === round.matches.length ? ' round-merge' : '';
           const previous = shown.rounds[i - 1]?.matches.length;
           const fed = previous !== undefined && (previous === round.matches.length || previous === round.matches.length * 2) ? ' round-fed' : '';
-          return <section className={`fixture-round${link}${fed}`} key={i}><h4>{round.label}<span>{count(round.matches)}</span></h4><div className="fixture-round-matches">{round.matches.map(m => <div className={`fixture-cell${m.complete ? ' cell-done' : ''}`} key={`${m.id}-${m.playerA}-${m.playerB}`}><MatchCard match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={m.id === final?.id} submit={submit} /></div>)}</div></section>;
+          return <section className={`fixture-round${link}${fed}`} key={i}><h4>{round.label}<span>{count(round.matches)}</span></h4><div className="fixture-round-matches">{round.matches.map(m => <div className={`fixture-cell${m.complete ? ' cell-done' : ''}`} key={`${m.id}-${m.playerA}-${m.playerB}`}><MatchCard match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={Boolean(m.decisive)} submit={submit} /></div>)}</div></section>;
         })}
       </div>
+      {/* El tercer puesto se juega al lado de la final: va debajo de la llave que la tiene, sin conectores. */}
+      {shown === sections.at(-1) && thirdPlace.length > 0 && <section className="fixture-third" aria-label="Tercer puesto">
+        <h4>Tercer y cuarto puesto</h4>
+        {thirdPlace.map(m => <MatchCard key={`${m.id}-${m.playerA}-${m.playerB}`} match={m} tournament={tournament} state={state} editable={canEdit && !tournament.results.length} busy={busy} final={false} submit={submit} />)}
+      </section>}
     </div>}
   </>;
 }

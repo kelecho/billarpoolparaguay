@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 test('crea un jugador y un torneo por categoría, sortea, juega y publica el fixture', async ({ page }) => {
   await page.goto('/');
@@ -492,5 +492,114 @@ test.describe('sorteo con suspenso', () => {
     expect(await firstRound.allInnerTexts()).toEqual(revealed);
     await page.reload();
     expect(await firstRound.allInnerTexts()).toEqual(revealed);
+  });
+});
+
+test.describe('definición del torneo', () => {
+  async function createTournament(page: Page, name: string, configure: () => Promise<void>) {
+    await page.goto('/#/torneos');
+    await page.getByRole('button', { name: 'Crear torneo' }).click();
+    await page.getByLabel('Nombre del torneo').fill(name);
+    await page.getByLabel('Fecha', { exact: true }).fill('2025-02-01');
+    await page.getByLabel('Categoría del torneo').selectOption('Segunda');
+    await page.getByLabel('Partidas para ganar').fill('2');
+    await page.getByLabel('Sede y ciudad').fill('Club de la final');
+    await configure();
+    await page.getByRole('button', { name: 'Guardar torneo' }).click();
+    await page.getByRole('article').filter({ hasText: name }).getByRole('link', { name: 'Administrar torneo' }).click();
+  }
+  async function score(dialog: Locator, id: string, a: number, b: number) {
+    const match = dialog.getByRole('article', { name: `Partido ${id}`, exact: true });
+    await match.getByRole('button', { name: 'Cargar resultado', exact: true }).click();
+    await match.getByRole('spinbutton').nth(0).fill(String(a));
+    await match.getByRole('spinbutton').nth(1).fill(String(b));
+    await match.getByRole('button', { name: 'Guardar resultado' }).click();
+    await expect(match.getByRole('button', { name: 'Editar resultado' })).toBeVisible();
+  }
+  async function enter(dialog: Locator, names: string[]) {
+    for (const name of names) {
+      await dialog.getByRole('button', { name: `Inscribir a ${name}`, exact: true }).click();
+      await expect(dialog.getByRole('button', { name: `Quitar inscripción de ${name}`, exact: true })).toBeVisible();
+    }
+    await dialog.getByLabel('Armado de cruces').selectOption('ranking');
+    await dialog.getByRole('button', { name: 'Generar emparejamientos' }).click();
+  }
+
+  test('juega el partido por el tercer puesto y no publica hasta que se define', async ({ page }) => {
+    await createTournament(page, 'Copa con tercero', async () => {
+      await expect(page.getByLabel(/Revancha en la gran final/)).toHaveCount(0);
+      await page.getByLabel(/Partido por el tercer puesto/).check();
+    });
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Eliminación directa · con partido por el tercer puesto');
+    await enter(dialog, ['Alejandro Vera', 'Carlos Acosta', 'Santiago Rojas', 'Miguel Duarte']);
+    const third = dialog.getByRole('region', { name: 'Tercer puesto' });
+    await expect(third.getByRole('article', { name: 'Partido T1-1', exact: true })).toContainText('Perdedor de 1-1');
+    await expect(dialog).toContainText('0/4 partidos disputados');
+    for (const id of ['1-1', '1-2', '2-1']) await score(dialog, id, 2, 0);
+    // La final está jugada y ya hay campeón a la vista, pero falta un partido.
+    await expect(dialog).toContainText('3/4 partidos disputados');
+    await expect(dialog.locator('.fixture-champion')).toContainText('Alejandro Vera');
+    await expect(dialog.getByRole('button', { name: 'Publicar resultados del torneo' })).toBeDisabled();
+    // Con cabezas de serie se cruzan 1.º con 4.º y 2.º con 3.º: por el tercer puesto juegan los dos que cayeron.
+    await expect(third).toContainText('Miguel Duarte');
+    await expect(third).toContainText('Santiago Rojas');
+    await score(dialog, 'T1-1', 1, 2);
+    await expect(dialog).toContainText('4/4 partidos disputados');
+    await dialog.getByRole('button', { name: 'Publicar resultados del torneo' }).click();
+    const results = dialog.locator('.result-list li');
+    await expect(results).toHaveCount(4);
+    expect(await results.locator('strong').allTextContents()).toEqual(['1.º', '2.º', '3.º', '4.º']);
+    await expect(results.nth(2)).toContainText('Santiago Rojas');
+    await expect(results.nth(2)).toContainText('+150');
+    await expect(results.nth(3)).toContainText('+100');
+  });
+
+  test('juega la revancha de la gran final cuando pierde el invicto', async ({ page }) => {
+    await createTournament(page, 'Copa con revancha', async () => {
+      await page.getByLabel('Formato').selectOption('double');
+      // La opción cambia con el formato: con fase final de cuatro vuelve a ser el tercer puesto.
+      await expect(page.getByLabel(/Partido por el tercer puesto/)).toHaveCount(0);
+      await page.getByLabel('Clasifican a la fase final').selectOption('4');
+      await expect(page.getByLabel(/Partido por el tercer puesto/)).toBeVisible();
+      await page.getByLabel('Clasifican a la fase final').selectOption('2');
+      await page.getByLabel(/Revancha en la gran final/).check();
+    });
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Doble eliminación · gran final con revancha');
+    await enter(dialog, ['Alejandro Vera', 'Carlos Acosta', 'Santiago Rojas']);
+    await score(dialog, 'G1-2', 2, 0);
+    await score(dialog, 'G2-1', 2, 0);
+    await dialog.getByRole('tab', { name: /perdedores/i }).click();
+    await score(dialog, 'P2-1', 2, 0);
+    await dialog.getByRole('tab', { name: /Gran final/ }).click();
+    const rematch = dialog.getByRole('article', { name: 'Partido F2-1', exact: true });
+    await expect(rematch).toContainText('Si pierde el invicto');
+    await expect(rematch.getByRole('button', { name: 'Cargar resultado', exact: true })).toHaveCount(0);
+
+    // Gana quien viene de perdedores: es la primera derrota del invicto, así que todavía no hay campeón.
+    await score(dialog, 'F1-1', 0, 2);
+    await expect(rematch).toContainText('Por jugar');
+    await expect(dialog).toContainText('4/5 partidos disputados');
+    await expect(dialog.getByText('Ganador del torneo')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Publicar resultados del torneo' })).toBeDisabled();
+    await score(dialog, 'F2-1', 2, 1);
+    await expect(dialog.locator('.fixture-champion')).toContainText('Alejandro Vera');
+
+    // Si en cambio la gran final la hubiera ganado el invicto, la revancha no se juega: hay que quitarla antes de corregir.
+    const final = dialog.getByRole('article', { name: 'Partido F1-1', exact: true });
+    await final.getByRole('button', { name: 'Editar resultado' }).click();
+    await final.getByRole('spinbutton').nth(0).fill('2');
+    await final.getByRole('spinbutton').nth(1).fill('0');
+    await final.getByRole('button', { name: 'Guardar resultado' }).click();
+    await expect(page.getByRole('alert')).toContainText('Primero quitá los resultados de las rondas posteriores');
+    await rematch.getByRole('button', { name: 'Editar resultado' }).click();
+    await rematch.getByRole('button', { name: 'Quitar resultado' }).click();
+    await rematch.getByRole('button', { name: 'Confirmar: quitar resultado' }).click();
+    await final.getByRole('button', { name: 'Guardar resultado' }).click();
+    await expect(rematch).toContainText('No hizo falta');
+    await expect(dialog).toContainText('4/4 partidos disputados');
+    await dialog.getByRole('button', { name: 'Publicar resultados del torneo' }).click();
+    expect(await dialog.locator('.result-list li strong').allTextContents()).toEqual(['1.º', '2.º', '3.º']);
   });
 });

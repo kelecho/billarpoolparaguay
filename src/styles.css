@@ -761,6 +761,8 @@ dialog.modal-wide { width: min(1100px, calc(100% - 30px)); }
 .fixture-round > h4 span { font-family: var(--mono); font-size: 10px; font-weight: 400; opacity: .8; }
 .fixture-board-P .fixture-round > h4 { border-top-color: #8fa3b8; }
 .fixture-board-F .fixture-round > h4 { border-top-color: #f3c74d; }
+.fixture-third { width: min(272px, 100%); margin-top: 6px; }
+.fixture-third > h4 { padding: 10px 12px; margin-bottom: 12px; border-radius: 4px; border-top: 3px solid #b0793a; background: var(--blue); color: var(--on-fill); font-size: 14px; }
 .fixture-round-matches { display: flex; flex: 1; flex-direction: column; }
 /* Cada partido ocupa una franja igual de la columna: así el centro de un partido cae justo entre los dos que lo alimentan y los conectores cierran. */
 .fixture-cell { position: relative; flex: 1 1 0; display: flex; align-items: center; padding: 11px 0; }
