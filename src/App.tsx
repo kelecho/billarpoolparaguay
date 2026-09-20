@@ -132,7 +132,7 @@ export default function App() {
             {page === 'Ranking' && <RankingPage state={state} canEdit={canEdit} onAddPlayer={() => open({ kind: 'player' })} renderTournament={renderTournament} />}
             {page === 'Jugadores' && <PlayersPage state={state} ranking={ranking} canEdit={canEdit} onAddPlayer={() => open({ kind: 'player' })} />}
             {page === 'Torneos' && <TournamentsPage state={state} canEdit={canEdit} onCreate={() => open({ kind: 'tournament' })} renderTournament={renderTournament} />}
-            {page === 'Configuración' && <SettingsPage store={store} onSaveRules={rules => dispatch({ type: 'rules.save', rules })} onExport={exportBackup} onReplace={next => open({ kind: 'replace', state: next })} onError={e => setError(errorMessage(e))} onLogout={() => void run(async () => { await store.logout(); navigate(pageHref('Ranking')); }, 'Sesión cerrada.')} />}
+            {page === 'Configuración' && <SettingsPage store={store} onSaveRules={rules => dispatch({ type: 'rules.save', rules })} onExport={exportBackup} onReplace={next => open({ kind: 'replace', state: next })} onError={e => setError(errorMessage(e))} onLogout={all => void run(async () => { await store.logout(all); navigate(pageHref('Ranking')); }, all ? 'Sesiones cerradas en todos los dispositivos.' : 'Sesión cerrada.')} />}
           </>}
 
           <footer className="club-footer">

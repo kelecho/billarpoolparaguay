@@ -12,6 +12,10 @@ const port = Number(process.env.PORT || (portIndex >= 0 && process.argv[portInde
 const dist = join(import.meta.dirname, 'dist-remote');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 
+// Las mismas cabeceras que Cloudflare toma de `_headers`, para que las pruebas corran con la política de contenido real.
+const headersFile = join(dist, '_headers');
+const STATIC_HEADERS = existsSync(headersFile) ? Object.fromEntries(readFileSync(headersFile, 'utf8').split('\n').filter(l => /^\s+\S/.test(l)).map(l => [l.slice(0, l.indexOf(':')).trim(), l.slice(l.indexOf(':') + 1).trim()])) : {};
+
 const vars = existsSync('.dev.vars') ? Object.fromEntries(readFileSync('.dev.vars', 'utf8').split('\n').filter(l => l.includes('=') && !l.startsWith('#')).map(l => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()])) : {};
 mkdirSync('.data', { recursive: true });
 
@@ -24,7 +28,7 @@ const env = {
       const path = normalize(decodeURIComponent(new URL(request.url).pathname));
       const file = join(dist, path);
       const target = file.startsWith(dist) && extname(file) && existsSync(file) ? file : join(dist, 'index.html');
-      return new Response(readFileSync(target), { headers: { 'content-type': TYPES[extname(target)] ?? 'application/octet-stream' } });
+      return new Response(readFileSync(target), { headers: { ...STATIC_HEADERS, 'content-type': TYPES[extname(target)] ?? 'application/octet-stream' } });
     },
   },
 };

@@ -18,7 +18,8 @@ export type Store = {
   dispatch: (action: Action) => Promise<void>;
   replace: (state: State) => Promise<void>;
   login: (password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  /** Con `all` cierra también las sesiones de otros dispositivos. */
+  logout: (all?: boolean) => Promise<void>;
   /** Contenido para el respaldo, con las fotos incluidas; en modo local bloqueado devuelve el texto original sin tocar. */
   exportContent: () => Promise<string>;
 };
@@ -88,7 +89,7 @@ export function useStore(): Store {
     dispatch: async action => remote.REMOTE ? write(() => remote.sendAction(action, version.current)) : commitLocal(applyAction(state, action)),
     replace: async next => remote.REMOTE ? write(() => remote.replaceState(next, version.current)) : commitLocal(next, true),
     login: async password => { await remote.login(password); await refresh(); },
-    logout: async () => { await remote.logout(); setAdmin(false); },
+    logout: async all => { await remote.logout(all); setAdmin(false); },
     exportContent: async () => storageBlocked ? localStorage.getItem(STORAGE_KEY) ?? '' : JSON.stringify(remote.REMOTE ? await remote.exportState(state) : state, null, 2),
   };
 }

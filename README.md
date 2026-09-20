@@ -57,7 +57,11 @@ Los datos se guardan bajo `pool-paraguay-state-v1`, en este navegador y origen. 
 - `GET /api/state` es público. Las escrituras (`POST /api/actions`, `PUT /api/state`) exigen sesión de administrador.
 - El servidor vuelve a aplicar las reglas de `src/domain.ts`; el navegador nunca decide los puntos. La fecha para publicar resultados se toma en hora del Paraguay.
 - Cada guardado lleva la versión que el administrador tenía a la vista. Si otra persona guardó antes, el servidor responde 409 y la aplicación muestra los datos nuevos en vez de pisarlos.
-- La sesión es una cookie `HttpOnly; Secure; SameSite=Strict` de 12 horas firmada con una clave derivada de `ADMIN_PASSWORD`: cambiar la contraseña cierra todas las sesiones. Cinco intentos fallidos bloquean esa IP por 15 minutos.
+- La sesión es una cookie `__Host-` con `HttpOnly; Secure; SameSite=Strict` de 12 horas que lleva un token al azar. La tabla `sessions` guarda solo su resumen: cerrar sesión la invalida en el servidor, «Cerrar en todos los dispositivos» borra todas y cambiar `ADMIN_PASSWORD` (mínimo 12 caracteres) también las cierra. Las escrituras desde otro origen se rechazan.
+- El acceso admite cinco intentos fallidos cada 15 minutos por dirección (por prefijo /64 en IPv6) y cien entre todas. El intento se anota en la misma sentencia que lo cuenta, así que los pedidos en paralelo no pasan el límite.
+- Cada endpoint lee el cuerpo por partes y corta al pasar su tope: 1 kB el acceso, 100 kB una foto, 256 kB una acción y 10 MB un respaldo.
+- El Worker recuerda en memoria el último ranking armado y comprueba la versión en cada pedido: repetir `GET /api/state` cuesta una fila leída, no un recorrido de todas las tablas.
+- `public/_headers` define la política de contenido (solo recursos propios, sin scripts ni estilos en línea), `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` y HSTS para el sitio; `server.mjs` aplica el mismo archivo y las pruebas de navegador fallan si la política bloquea algo. Las respuestas de la API llevan `nosniff`, `no-store` y `Cross-Origin-Resource-Policy: same-origin`.
 - Cada cambio queda en el registro de auditoría (visible en Configuración), con el motivo cuando se reabre un torneo.
 - Jugadores, torneos, inscripciones, partidos y resultados tienen cada uno su tabla en D1 (`migrations/0002_tables.sql`, que también reparte el documento de la versión anterior). `worker/store.ts` arma el registro al leer y, al guardar, escribe solo las filas que cambiaron. Cada sentencia lleva sus filas en un parámetro JSON (`json_each`), de modo que un respaldo grande se restaura con un número fijo de consultas. Datos y auditoría se guardan en una transacción que respeta la versión del administrador.
 - Las fotos viven en el bucket R2 `PHOTOS`. `POST /api/photos` (administrador) valida el JPEG y lo guarda con el SHA-256 de su contenido como nombre; la ficha conserva solo la referencia `/api/photos/<hash>.jpg`, que se sirve con caché permanente. El navegador sube cada foto en su propia petición antes de guardar la ficha o restaurar un respaldo; al exportar, vuelve a incluir las fotos en el archivo. Las fotos que quedan sin ficha se borran de R2.
@@ -66,11 +70,13 @@ Los datos se guardan bajo `pool-paraguay-state-v1`, en este navegador y origen. 
 Probarlo en esta máquina:
 
 ```sh
-cp .dev.vars.example .dev.vars   # y elegir una contraseña de al menos 8 caracteres
+cp .dev.vars.example .dev.vars   # y elegir una contraseña de al menos 12 caracteres
 npm run dev:remote                # http://localhost:8787, datos en .data/local.sqlite y fotos en .data/photos
 ```
 
 `dev:remote` usa `server.mjs`, que ejecuta el mismo Worker con Node sobre SQLite. Se usa en lugar de `wrangler dev` porque `workerd` requiere glibc 2.32 o posterior y no arranca en sistemas más viejos (por ejemplo Ubuntu 20.04).
+
+Con un dominio propio conviene sumar en el panel de Cloudflare una regla de límite de peticiones para `/api/*`; en `workers.dev` no se pueden configurar.
 
 Publicarlo en Cloudflare (una sola vez los cuatro primeros pasos; R2 se activa antes desde el panel de Cloudflare):
 
@@ -78,7 +84,7 @@ Publicarlo en Cloudflare (una sola vez los cuatro primeros pasos; R2 se activa a
 npx wrangler login
 npx wrangler d1 create pool-paraguay      # copiar el database_id a wrangler.jsonc
 npx wrangler r2 bucket create pool-paraguay-photos
-npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put ADMIN_PASSWORD   # al menos 12 caracteres; mejor una frase larga o generada al azar
 npm run deploy                            # compila, aplica migraciones y publica
 ```
 

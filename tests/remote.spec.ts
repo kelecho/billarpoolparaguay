@@ -4,8 +4,19 @@ import { expect, test } from '@playwright/test';
 // Modo compartido: compilación `--mode remote` servida por server.mjs con una base SQLite nueva.
 test.describe.configure({ mode: 'serial' });
 
+// La política de contenido real no debe bloquear nada de la aplicación: fotos, fuentes, estilos ni el service worker.
+let blocked: string[] = [];
+test.beforeEach(async ({ context }) => {
+  blocked = [];
+  context.on('console', message => { if (/Content Security Policy|Refused to/i.test(message.text())) blocked.push(message.text()); });
+});
+test.afterEach(() => expect(blocked).toEqual([]));
+
 test('el público ve el ranking sin controles de edición', async ({ page }) => {
-  await page.goto('/');
+  const response = await page.goto('/');
+  expect(response!.headers()['content-security-policy']).toContain("script-src 'self'");
+  expect(response!.headers()['x-frame-options']).toBe('DENY');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', /light|dark/);
   await expect(page.getByRole('heading', { name: 'El ranking', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Agregar jugador' })).toHaveCount(0);
   await expect(page.getByRole('navigation').getByRole('link', { name: 'Configuración' })).toHaveCount(0);

@@ -49,12 +49,83 @@ describe('API del ranking compartido', () => {
     expect((await call('POST', '/api/login', { password: 'clave-de-prueba' })).status).toBe(429);
   });
 
-  it('no acepta una cookie firmada con otra contraseña ni inventada', async () => {
-    await login();
+  it('no acepta una sesión tras cambiar la contraseña ni una cookie inventada', async () => {
+    const response = await login();
+    expect(response.headers.get('set-cookie')).toMatch(/^__Host-pool_admin=[0-9a-f]{64};/);
     env.ADMIN_PASSWORD = 'otra-clave-distinta';
     expect((await call('GET', '/api/state')).data.admin).toBe(false);
-    cookie = 'pool_admin=99999999999.abcdef';
+    cookie = `__Host-pool_admin=${'a'.repeat(64)}`;
     expect((await call('GET', '/api/state')).data.admin).toBe(false);
+  });
+
+  it('cerrar sesión la invalida en el servidor, también en otros dispositivos', async () => {
+    await login();
+    const phone = cookie;
+    await login();
+    const laptop = cookie;
+    expect((await call('POST', '/api/logout', { all: false })).status).toBe(200);
+    expect((await call('GET', '/api/state')).data.admin).toBe(false);
+    cookie = phone;
+    expect((await call('GET', '/api/state')).data.admin).toBe(true);
+    expect((await call('POST', '/api/logout', { all: true })).status).toBe(200);
+    for (cookie of [phone, laptop]) expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 })).status).toBe(401);
+    cookie = '';
+    expect((await call('POST', '/api/logout', { all: true })).status).toBe(401);
+    const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM sessions').first<{ n: number }>();
+    expect(row!.n).toBe(0);
+  });
+
+  it('la sesión vence y no guarda el token en la base', async () => {
+    await login();
+    const stored = await env.DB.prepare('SELECT id FROM sessions').first<{ id: string }>();
+    expect(cookie).not.toContain(stored!.id);
+    await env.DB.prepare('UPDATE sessions SET expires_at = ?').bind(Math.floor(Date.now() / 1000) - 1).run();
+    expect((await call('GET', '/api/state')).data.admin).toBe(false);
+  });
+
+  it('exige una contraseña de administrador larga', async () => {
+    env.ADMIN_PASSWORD = 'corta-123';
+    expect((await call('POST', '/api/login', { password: 'corta-123' })).status).toBe(503);
+  });
+
+  it('limita los intentos por red IPv6, en paralelo y entre todas las direcciones', async () => {
+    const attempt = (ip: string, password = 'incorrecta') => call('POST', '/api/login', { password }, { 'cf-connecting-ip': ip });
+    const parallel = await Promise.all(Array.from({ length: 12 }, (_, i) => attempt(`2001:db8:1:2::${i + 1}`)));
+    expect(parallel.filter(r => r.status === 401)).toHaveLength(5);
+    expect((await attempt('2001:db8:1:2:ffff::9', 'clave-de-prueba')).status).toBe(429);
+    expect((await attempt('2001:db8:1:3::1', 'clave-de-prueba')).status).toBe(200);
+    expect((await attempt('2001:db8:1:3::1', 'clave-de-prueba')).status).toBe(200);
+    for (let i = 0; i < 95; i++) await attempt(`10.0.${i}.1`);
+    expect((await attempt('10.9.9.9', 'clave-de-prueba')).status).toBe(429);
+    expect((await env.DB.prepare('SELECT COUNT(*) AS n FROM login_attempts').first<{ n: number }>())!.n).toBe(100);
+  });
+
+  it('corta los cuerpos demasiado grandes sin leerlos enteros', async () => {
+    const big = 'x'.repeat(5000);
+    expect((await call('POST', '/api/login', { password: big })).status).toBe(413);
+    const streamed = await worker.fetch(new Request(`${ORIGIN}/api/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, duplex: 'half',
+      body: new ReadableStream({ pull(controller) { controller.enqueue(new TextEncoder().encode(big)); } }),
+    } as RequestInit), env);
+    expect(streamed.status).toBe(413);
+    await login();
+    expect((await call('POST', '/api/actions', { action: { type: 'player.save', player: { ...player, club: 'x'.repeat(300_000) } }, version: 0 })).status).toBe(413);
+  });
+
+  it('responde con cabeceras de seguridad y no vuelve a recorrer las tablas si nadie guardó', async () => {
+    const first = await call('GET', '/api/state');
+    expect(first.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(first.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(first.headers.get('cache-control')).toBe('no-store');
+    let reads = 0;
+    const { batch } = env.DB;
+    env.DB.batch = (async (list: any[]) => { reads++; return batch(list); }) as typeof env.DB.batch;
+    for (let i = 0; i < 5; i++) expect((await call('GET', '/api/state')).data).toEqual(first.data);
+    expect(reads).toBe(0);
+    env.DB.batch = batch;
+    await login();
+    await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 });
+    expect((await call('GET', '/api/state')).data).toMatchObject({ version: 1, admin: true, state: { players: [{ id: 'ana' }] } });
   });
 
   it('aplica acciones con las reglas del dominio, versiona y audita', async () => {

@@ -7,16 +7,29 @@ export interface Env {
   /** Fotos de los jugadores; cada archivo se llama como el SHA-256 de su contenido. */
   PHOTOS: R2Bucket;
   ASSETS: Fetcher;
-  /** Secreto: `wrangler secret put ADMIN_PASSWORD`. En local, `.dev.vars`. */
+  /** Secreto de al menos 12 caracteres: `wrangler secret put ADMIN_PASSWORD`. En local, `.dev.vars`. */
   ADMIN_PASSWORD?: string;
 }
 
 const TIME_ZONE = 'America/Asuncion';
-const SESSION_COOKIE = 'pool_admin';
+// El prefijo `__Host-` obliga al navegador a aceptarla solo con Secure, Path=/ y sin Domain.
+const SESSION_COOKIE = '__Host-pool_admin';
 const SESSION_SECONDS = 60 * 60 * 12;
+const MIN_PASSWORD_LENGTH = 12;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const LOGIN_MAX_FAILURES = 5;
-const MAX_BODY_BYTES = 10 * 1024 * 1024;
+/** Tope entre todas las direcciones: frena un ataque repartido y acota las escrituras que puede provocar. */
+const LOGIN_MAX_FAILURES_GLOBAL = 100;
+const MAX_STATE_BYTES = 10 * 1024 * 1024;
+const MAX_ACTION_BYTES = 256 * 1024;
+const MAX_PHOTO_BYTES = 100 * 1024;
+const MAX_LOGIN_BYTES = 1024;
+const API_HEADERS = {
+  'cache-control': 'no-store',
+  'x-content-type-options': 'nosniff',
+  'cross-origin-resource-policy': 'same-origin',
+  'referrer-policy': 'no-referrer',
+};
 
 class HttpError extends Error {
   status: number;
@@ -26,8 +39,9 @@ class HttpError extends Error {
   }
 }
 
-const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
+const raw = (text: string, status = 200, headers: Record<string, string> = {}) =>
+  new Response(text, { status, headers: { 'content-type': 'application/json; charset=utf-8', 'content-security-policy': "default-src 'none'; frame-ancestors 'none'", ...API_HEADERS, ...headers } });
+const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => raw(JSON.stringify(body), status, headers);
 
 const encoder = new TextEncoder();
 const photoKey = (ref: string) => ref.slice(PHOTO_PATH.length);
@@ -42,23 +56,20 @@ async function safeEqual(a: string, b: string) {
   return diff === 0;
 }
 
-/** La clave de sesión deriva de la contraseña: cambiarla cierra todas las sesiones. */
-async function sign(password: string, payload: string) {
-  const key = await crypto.subtle.importKey('raw', await sha256(`pool-paraguay-session:${password}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return hex(await crypto.subtle.sign('HMAC', key, encoder.encode(payload)));
-}
-
 function password(env: Env) {
-  if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 8) throw new HttpError(503, 'El acceso de administrador todavía no está configurado.');
+  if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < MIN_PASSWORD_LENGTH) throw new HttpError(503, `El acceso de administrador todavía no está configurado: ADMIN_PASSWORD necesita al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
   return env.ADMIN_PASSWORD;
 }
 
+const sessionToken = (request: Request) => request.headers.get('cookie')?.split(/;\s*/).find(c => c.startsWith(`${SESSION_COOKIE}=`))?.slice(SESSION_COOKIE.length + 1);
+
+/** La base guarda el resumen del token con la contraseña: no sirve para armar cookies y cambiar la contraseña cierra todas las sesiones. */
+const sessionId = async (token: string, secret: string) => hex(await sha256(`${token}.${secret}`));
+
 async function isAdmin(request: Request, env: Env) {
-  if (!env.ADMIN_PASSWORD) return false;
-  const token = request.headers.get('cookie')?.split(/;\s*/).find(c => c.startsWith(`${SESSION_COOKIE}=`))?.slice(SESSION_COOKIE.length + 1);
-  const [expires, signature] = token?.split('.') ?? [];
-  if (!expires || !signature || !(Number(expires) > Date.now() / 1000)) return false;
-  return safeEqual(signature, await sign(env.ADMIN_PASSWORD, expires));
+  const token = sessionToken(request);
+  if (!token || !/^[0-9a-f]{64}$/.test(token) || !env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < MIN_PASSWORD_LENGTH) return false;
+  return Boolean(await env.DB.prepare('SELECT 1 FROM sessions WHERE id = ? AND expires_at > ?').bind(await sessionId(token, env.ADMIN_PASSWORD), Math.floor(Date.now() / 1000)).first());
 }
 
 async function requireAdmin(request: Request, env: Env) {
@@ -67,15 +78,43 @@ async function requireAdmin(request: Request, env: Env) {
 
 const sessionCookie = (value: string, maxAge: number) => `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 
-async function body(request: Request): Promise<Record<string, unknown>> {
+/** Lee por partes y corta al pasar el tope: un cuerpo enorme no llega a ocupar la memoria del Worker. */
+async function body(request: Request, limit: number): Promise<Record<string, unknown>> {
   if (!request.headers.get('content-type')?.includes('application/json')) throw new HttpError(415, 'Se esperaba JSON.');
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw new HttpError(413, 'El contenido supera el límite de 10 MB.');
+  const tooLarge = new HttpError(413, 'El contenido supera el tamaño permitido.');
+  if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge;
+  const chunks: Uint8Array[] = [];
+  const reader = request.body?.getReader();
+  for (let size = 0; reader;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if ((size += value.byteLength) > limit) { await reader.cancel(); throw tooLarge; }
+    chunks.push(value);
+  }
   try {
-    const value = JSON.parse(text);
+    const value = JSON.parse(await new Blob(chunks).text());
     if (value && typeof value === 'object') return value;
   } catch { /* cae en el error de abajo */ }
   throw new HttpError(400, 'El contenido no es JSON válido.');
+}
+
+/** Último ranking armado por este proceso. La versión se comprueba en cada pedido, así que nunca sirve datos viejos. */
+const snapshots = new WeakMap<D1Database, { tag: string; text: string }>();
+
+/**
+ * Quien ya tiene la versión vigente recibe solo la confirmación: ahorra datos móviles y lecturas de D1.
+ * Repetir la consulta pública tampoco recorre las tablas: cuesta una fila leída mientras nadie guarde.
+ */
+async function publicState(request: Request, env: Env) {
+  const admin = await isAdmin(request, env);
+  const current = await head(env.DB);
+  if (new URL(request.url).searchParams.get('tag') === current.tag) return json({ ...current, admin });
+  let snapshot = snapshots.get(env.DB);
+  if (snapshot?.tag !== current.tag) {
+    const loaded = await load(env.DB);
+    snapshots.set(env.DB, snapshot = { tag: loaded.tag, text: JSON.stringify(loaded) });
+  }
+  return raw(`${snapshot.text.slice(0, -1)},"admin":${admin}}`);
 }
 
 /** Las fichas del servidor solo llevan referencias; una foto nueva tiene que estar subida antes de guardarse. */
@@ -98,7 +137,7 @@ async function dropUnusedPhotos(env: Env, next: State, previous: State) {
 }
 
 async function uploadPhoto(request: Request, env: Env) {
-  const { photo } = await body(request);
+  const { photo } = await body(request, MAX_PHOTO_BYTES);
   if (!validPlayerPhoto(photo)) throw new HttpError(422, 'La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
   const bytes = Uint8Array.from(atob(photo.slice(photo.indexOf(',') + 1)), c => c.charCodeAt(0));
   const key = `${hex(await crypto.subtle.digest('SHA-256', bytes))}.jpg`;
@@ -110,26 +149,52 @@ async function uploadPhoto(request: Request, env: Env) {
 async function servePhoto(env: Env, path: string) {
   const object = isPhotoRef(path) ? await env.PHOTOS.get(photoKey(path)) : null;
   if (!object) throw new HttpError(404, 'No encontrado.');
-  return new Response(object.body, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
+  return new Response(object.body, { headers: { 'content-type': 'image/jpeg', ...API_HEADERS, 'cache-control': 'public, max-age=31536000, immutable' } });
 }
 
 const conflict = async (env: Env) => json({ error: 'Otra persona guardó cambios mientras editabas. Actualizamos los datos: revisalos y volvé a intentar.', ...(await load(env.DB)) }, 409);
 
+/** Una conexión IPv6 recibe un /64 entero: se cuenta el prefijo para que rotar direcciones no esquive el límite. */
+function clientKey(request: Request) {
+  const ip = request.headers.get('cf-connecting-ip') ?? 'local';
+  if (!ip.includes(':')) return ip;
+  const [head, tail] = ip.split('::').map(part => part ? part.split(':') : []);
+  const groups = tail ? [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail] : head;
+  return `${groups.slice(0, 4).map(g => parseInt(g, 16).toString(16)).join(':')}::/64`;
+}
+
 async function login(request: Request, env: Env) {
   const secret = password(env);
-  const ip = request.headers.get('cf-connecting-ip') ?? 'local';
+  const ip = clientKey(request);
   const now = Math.floor(Date.now() / 1000);
   await env.DB.prepare('DELETE FROM login_attempts WHERE at < ?').bind(now - LOGIN_WINDOW_SECONDS).run();
-  const failures = await env.DB.prepare('SELECT COUNT(*) AS n FROM login_attempts WHERE ip = ?').bind(ip).first<{ n: number }>();
-  if ((failures?.n ?? 0) >= LOGIN_MAX_FAILURES) throw new HttpError(429, 'Demasiados intentos. Esperá 15 minutos y volvé a probar.');
+  // El intento se anota antes de comprobar la contraseña, en la misma sentencia que cuenta: pedidos en paralelo no pasan el límite.
+  const attempt = await env.DB.prepare('INSERT INTO login_attempts (ip, at) SELECT ?, ? WHERE (SELECT COUNT(*) FROM login_attempts WHERE ip = ?) < ? AND (SELECT COUNT(*) FROM login_attempts) < ? RETURNING rowid AS id')
+    .bind(ip, now, ip, LOGIN_MAX_FAILURES, LOGIN_MAX_FAILURES_GLOBAL).first<{ id: number }>();
+  if (!attempt) throw new HttpError(429, 'Demasiados intentos. Esperá 15 minutos y volvé a probar.');
 
-  const { password: attempt } = await body(request);
-  if (typeof attempt !== 'string' || !(await safeEqual(attempt, secret))) {
-    await env.DB.prepare('INSERT INTO login_attempts (ip, at) VALUES (?, ?)').bind(ip, now).run();
-    throw new HttpError(401, 'La contraseña no es correcta.');
+  const { password: typed } = await body(request, MAX_LOGIN_BYTES);
+  if (typeof typed !== 'string' || !(await safeEqual(typed, secret))) throw new HttpError(401, 'La contraseña no es correcta.');
+  const token = hex(crypto.getRandomValues(new Uint8Array(32)).buffer);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM login_attempts WHERE rowid = ?').bind(attempt.id),
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at <= ?').bind(now),
+    env.DB.prepare('INSERT INTO sessions (id, expires_at) VALUES (?, ?)').bind(await sessionId(token, secret), now + SESSION_SECONDS),
+  ]);
+  return json({ admin: true }, 200, { 'set-cookie': sessionCookie(token, SESSION_SECONDS) });
+}
+
+/** Cerrar sesión la invalida en el servidor; con `all` cierra también las de otros dispositivos. */
+async function logout(request: Request, env: Env) {
+  const { all } = await body(request, MAX_LOGIN_BYTES);
+  const token = sessionToken(request);
+  if (all === true) {
+    await requireAdmin(request, env);
+    await env.DB.prepare('DELETE FROM sessions').run();
+  } else if (token && env.ADMIN_PASSWORD) {
+    await env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(await sessionId(token, env.ADMIN_PASSWORD)).run();
   }
-  const expires = String(now + SESSION_SECONDS);
-  return json({ admin: true }, 200, { 'set-cookie': sessionCookie(`${expires}.${await sign(secret, expires)}`, SESSION_SECONDS) });
+  return json({ admin: false }, 200, { 'set-cookie': sessionCookie('', 0) });
 }
 
 async function api(request: Request, env: Env, path: string): Promise<Response> {
@@ -140,23 +205,18 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
     if (origin && origin !== new URL(request.url).origin) throw new HttpError(403, 'Origen no permitido.');
   }
 
-  if (path === '/api/state' && method === 'GET') {
-    // Quien ya tiene la versión vigente recibe solo la confirmación: ahorra datos móviles y lecturas de D1.
-    const tag = new URL(request.url).searchParams.get('tag');
-    const current = tag ? await head(env.DB) : null;
-    return json({ ...(current?.tag === tag ? current : await load(env.DB)), admin: await isAdmin(request, env) });
-  }
+  if (path === '/api/state' && method === 'GET') return publicState(request, env);
   if (path.startsWith(PHOTO_PATH) && method === 'GET') return servePhoto(env, path);
   if (path === '/api/photos' && method === 'POST') {
     await requireAdmin(request, env);
     return uploadPhoto(request, env);
   }
   if (path === '/api/login' && method === 'POST') return login(request, env);
-  if (path === '/api/logout' && method === 'POST') return json({ admin: false }, 200, { 'set-cookie': sessionCookie('', 0) });
+  if (path === '/api/logout' && method === 'POST') return logout(request, env);
 
   if (path === '/api/actions' && method === 'POST') {
     await requireAdmin(request, env);
-    const { action, version } = await body(request) as { action?: Action; version?: number };
+    const { action, version } = await body(request, MAX_ACTION_BYTES) as { action?: Action; version?: number };
     if (!action || typeof action !== 'object' || typeof version !== 'number') throw new HttpError(400, 'Falta la acción o la versión.');
     const current = await load(env.DB);
     if (current.version !== version) return conflict(env);
@@ -176,7 +236,7 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
 
   if (path === '/api/state' && method === 'PUT') {
     await requireAdmin(request, env);
-    const { state, version } = await body(request) as { state?: unknown; version?: number };
+    const { state, version } = await body(request, MAX_STATE_BYTES) as { state?: unknown; version?: number };
     if (typeof version !== 'number') throw new HttpError(400, 'Falta la versión.');
     const current = await load(env.DB);
     if (current.version !== version) return conflict(env);

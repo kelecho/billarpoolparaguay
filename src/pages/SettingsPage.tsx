@@ -5,7 +5,7 @@ import { createState, validateState, type Rules, type State } from '../domain';
 import { fetchAudit, type AuditEntry } from '../remote';
 import type { Store } from '../useStore';
 
-type Props = { store: Store; onSaveRules: (rules: Rules) => void; onExport: () => void; onReplace: (state: State) => void; onError: (e: unknown) => void; onLogout: () => void };
+type Props = { store: Store; onSaveRules: (rules: Rules) => void; onExport: () => void; onReplace: (state: State) => void; onError: (e: unknown) => void; onLogout: (all: boolean) => void };
 
 const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 const auditDate = (at: string) => new Intl.DateTimeFormat('es-PY', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(at));
@@ -47,7 +47,10 @@ export default function SettingsPage({ store, onSaveRules, onExport, onReplace, 
           <span className="eyebrow">TU ORGANIZACIÓN</span>
           <h1><em>Configuración</em><span className="heading-period" aria-hidden="true">.</span></h1>
         </div>
-        {store.remote && <button className="button" onClick={onLogout}><LogOut size={16} />Cerrar sesión</button>}
+        {store.remote && <div className="session-actions">
+          <button className="button" onClick={() => onLogout(false)}><LogOut size={16} />Cerrar sesión</button>
+          <button className="text-button" onClick={() => onLogout(true)}>Cerrar en todos los dispositivos</button>
+        </div>}
       </div>
       <div className="settings-layout">
         <RulesForm rules={state.rules} onSave={onSaveRules} />

@@ -93,5 +93,6 @@ export const replaceState = async (state: State, version: number) =>
   snapshot(await request('/api/state', { method: 'PUT', body: JSON.stringify({ state: { ...state, players: await pooled(state.players, uploaded) }, version }) }));
 
 export const login = (password: string) => request<{ admin: boolean }>('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
-export const logout = () => request<{ admin: boolean }>('/api/logout', { method: 'POST', body: '{}' });
+/** Con `all` el servidor cierra también las sesiones abiertas en otros dispositivos. */
+export const logout = (all = false) => request<{ admin: boolean }>('/api/logout', { method: 'POST', body: JSON.stringify({ all }) });
 export const fetchAudit = async () => (await request<{ entries: AuditEntry[] }>('/api/audit')).entries;
