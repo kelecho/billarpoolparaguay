@@ -88,10 +88,9 @@ svg { flex-shrink: 0; }
 .nav-item.active { background: var(--blue); color: var(--on-fill); }
 .header-country { display: flex; align-items: center; gap: 12px; font-size: 10px; line-height: 1.5; }
 .header-country strong { display: block; font-size: 11px; }
-.flag { display: flex; width: 29px; height: 21px; flex-direction: column; border: 1px solid var(--line); }
-.flag i { flex: 1; background: var(--red); }
-.flag i:nth-child(2) { background: var(--on-fill); }
-.flag i:nth-child(3) { background: var(--blue); }
+.flag { display: block; width: 66px; height: 46px; flex-shrink: 0; object-fit: contain; transform-origin: left center; filter: drop-shadow(0 5px 5px #10192335); animation: flag-billow 2.6s ease-in-out infinite; }
+@keyframes flag-billow { 0%, 100% { transform: perspective(180px) rotateY(-9deg) rotateZ(-2deg); } 50% { transform: perspective(180px) rotateY(8deg) rotateZ(2deg); } }
+@media (prefers-reduced-motion: reduce) { .flag { animation: none; } }
 .workspace { max-width: 1360px; margin: auto; }
 main { padding: 0 40px; }
 main:focus { outline: none; }
@@ -511,7 +510,7 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   .header-country { display: flex; font-size: 10px; gap: 7px; }
   .theme-toggle { width: 36px; height: 36px; }
   .header-country strong { font-size: 11px; }
-  .flag { width: 24px; height: 17px; }
+  .flag { width: 46px; height: 32px; }
   .club-header nav { order: 3; display: grid; grid-template-columns: .95fr 1.12fr .95fr 1.45fr; width: 100%; gap: 3px; }
   .nav-item { border-radius: 4px 4px 0 0; min-width: 0; min-height: 44px; justify-content: center; padding: 11px 5px; gap: 5px; font-size: 11px; }
   .nav-item svg { width: 15px; }
@@ -628,6 +627,7 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   main { padding: 0 15px; }
   .club-header { padding-left: 15px; padding-right: 15px; }
   .header-country > span:last-child { display: none; }
+  .flag { width: 38px; height: 27px; }
   .nav-item { padding: 11px 6px; gap: 4px; font-size: 11px; }
   .hero h1 { font-size: 59px; }
   .hero { grid-template-columns: minmax(0, 1fr) 115px; }

@@ -1,1 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#fffefa"/><circle cx="256" cy="256" r="196" fill="#163d67"/><circle cx="256" cy="256" r="175" fill="none" stroke="#fffefa" stroke-width="3" stroke-dasharray="3 12"/><path d="M132 164a155 155 0 0 1 248 0" fill="none" stroke="#ce3543" stroke-width="26"/><circle cx="256" cy="256" r="105" fill="#fffefa"/><path d="M256 179c-61 0-70 61-37 78-47 21-32 85 37 85s84-64 37-85c33-17 24-78-37-78Zm0 26c26 0 28 33 0 40-28-7-26-40 0-40Zm0 65c35 8 34 46 0 46s-35-38 0-46Z" fill="#163d67"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="36" y1="24" x2="476" y2="486" gradientUnits="userSpaceOnUse"><stop stop-color="#fffefa"/><stop offset="1" stop-color="#e9edf0"/></linearGradient>
+    <linearGradient id="ball" x1="143" y1="178" x2="371" y2="398" gradientUnits="userSpaceOnUse"><stop stop-color="#333b44"/><stop offset=".3" stop-color="#080b0f"/><stop offset=".76" stop-color="#11171d"/><stop offset="1" stop-color="#030506"/></linearGradient>
+    <linearGradient id="flag" x1="172" y1="79" x2="385" y2="201" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#071b30" stop-opacity=".26"/></linearGradient>
+    <radialGradient id="shine" cx="0" cy="0" r="1" gradientTransform="matrix(48 67 -70 50 203 207)" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="96" y="130" width="350" height="358" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feDropShadow dx="1" dy="22" stdDeviation="17" flood-color="#101923" flood-opacity=".34"/></filter>
+    <clipPath id="flagclip"><path d="M158 91c69-18 126-5 223-24l-4 144c-88-18-145 5-222-8l3-112Z"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="217" fill="#163d67"/>
+  <circle cx="256" cy="256" r="201" fill="none" stroke="#fffefa" stroke-width="3" stroke-dasharray="3 12"/>
+  <g clip-path="url(#flagclip)">
+    <path d="M150 64h245v48H150z" fill="#d52f43"/>
+    <path d="M150 112h245v49H150z" fill="#fff"/>
+    <path d="M150 161h245v64H150z" fill="#163d67"/>
+    <path d="M150 64h245v161H150z" fill="url(#flag)"/>
+    <path d="M286 112c-25-17-47 5-36 25-21 11-13 39 13 39s34-28 13-39c11-20-5-42-30-25" fill="#fff" stroke="#caa65d" stroke-width="3"/>
+    <path d="m263 119 3.1 7.2h7.7l-6.1 4.5 2.3 7.4-7-4.4-6.7 4.4 2.1-7.4-6-4.5h7.6l3-7.2Z" fill="#d52f43"/>
+    <path d="M254 146c-7-6-7-15-3-19m3 19c0-7 2-12 6-15m14 15c7-6 7-15 3-19m-3 19c0-7-2-12-6-15" stroke="#267248" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+  <path d="M158 91c69-18 126-5 223-24l-4 144c-88-18-145 5-222-8l3-112Z" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2"/>
+  <g filter="url(#shadow)">
+    <circle cx="273" cy="310" r="131" fill="url(#ball)"/>
+    <circle cx="273" cy="310" r="131" fill="url(#shine)"/>
+    <circle cx="273" cy="310" r="131" fill="none" stroke="#48515a" stroke-width="3"/>
+    <path d="M193 239c32-42 89-61 138-40" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="273" cy="315" rx="54" ry="57" fill="#f8f7f2" stroke="#d2d4d5" stroke-width="4"/>
+    <text x="273" y="337" fill="#10151a" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="800" text-anchor="middle">8</text>
+  </g>
+</svg>

@@ -126,7 +126,7 @@ export default function App() {
           ))}
         </nav>
         <div className="header-end">
-          <div className="header-country"><span className="flag"><i /><i /><i /></span><span>Hecho de partidas.<strong>Jugado en Paraguay.</strong></span></div>
+          <div className="header-country"><img className="flag" src="/flag.svg" alt="Bandera del Paraguay" /><span>Hecho de partidas.<strong>Jugado en Paraguay.</strong></span></div>
           <button className="theme-toggle" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} aria-pressed={theme === 'dark'}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
