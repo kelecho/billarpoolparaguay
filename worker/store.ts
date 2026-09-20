@@ -89,7 +89,7 @@ export async function load(db: D1Database): Promise<{ state: State; version: num
  * Cada sentencia lleva muchas filas en un parámetro JSON, así la cantidad de consultas no crece con los datos.
  * Todas comprueban `version` y el batch es una transacción: si otra persona guardó antes, no se escribe nada.
  */
-export async function save(db: D1Database, state: State, previous: State | null, version: number, audit: { type: string; summary: string; reason?: string }) {
+export async function save(db: D1Database, state: State, previous: State | null, version: number, audit: { type: string; summary: string; reason?: string; actor: string }) {
   const now = new Date().toISOString();
   const next = flatten(state);
   const before = previous && flatten(previous);
@@ -113,7 +113,7 @@ export async function save(db: D1Database, state: State, previous: State | null,
   const changes = [...removals, ...upserts];
   const written = await db.batch([...changes,
     db.prepare('UPDATE ranking SET version = version + 1, rules = ?, updated_at = ? WHERE id = 1 AND version = ?').bind(JSON.stringify(state.rules), now, version),
-    db.prepare('INSERT INTO audit (at, type, summary, reason) SELECT ?, ?, ?, ? WHERE changes() = 1').bind(now, audit.type, audit.summary, audit.reason ?? null),
+    db.prepare('INSERT INTO audit (at, type, summary, reason, actor) SELECT ?, ?, ?, ?, ? WHERE changes() = 1').bind(now, audit.type, audit.summary, audit.reason ?? null, audit.actor),
   ]);
   return written[changes.length].meta.changes ? tagOf(version + 1, now) : null;
 }

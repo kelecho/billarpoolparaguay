@@ -1,10 +1,11 @@
 // Servidor local del modo compartido: sirve `dist-remote/` y ejecuta el mismo Worker de producción sobre SQLite.
-// Uso: npm run dev:remote  (contraseña en .dev.vars, datos en .data/local.sqlite, fotos en .data/photos)
+// Uso: npm run dev:remote  (superadministrador local en .dev.vars, datos en .data/local.sqlite, fotos en .data/photos)
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { createD1 } from './scripts/d1-node.mjs';
 import { createR2 } from './scripts/r2-node.mjs';
+import { saveUser } from './scripts/create-user.mjs';
 import worker from './worker/index.ts';
 
 const portIndex = process.argv.indexOf('--port');
@@ -20,7 +21,6 @@ const vars = existsSync('.dev.vars') ? Object.fromEntries(readFileSync('.dev.var
 mkdirSync('.data', { recursive: true });
 
 const env = {
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ?? vars.ADMIN_PASSWORD,
   DB: createD1(process.env.DB_PATH ?? '.data/local.sqlite'),
   PHOTOS: createR2(process.env.DB_PATH === ':memory:' ? undefined : '.data/photos'),
   ASSETS: {
@@ -32,6 +32,10 @@ const env = {
     },
   },
 };
+
+// Solo en este servidor de desarrollo: la cuenta de `.dev.vars` entra siempre como superadministrador.
+const [email, password] = [process.env.ADMIN_EMAIL ?? vars.ADMIN_EMAIL, process.env.ADMIN_PASSWORD ?? vars.ADMIN_PASSWORD];
+if (email && password) await saveUser(env.DB, { email: email.trim().toLowerCase(), name: 'Superadministrador local', role: 'superadmin', password });
 
 createServer(async (req, res) => {
   const chunks = [];

@@ -42,7 +42,7 @@ npm run preview
 | | Local (`npm run build`) | Compartido (`npm run build:remote`) |
 |---|---|---|
 | Dónde viven los datos | `localStorage` de cada navegador | Base D1 de Cloudflare, una sola para todos |
-| Quién edita | Cualquiera que abra la página | Solo quien inicia sesión como administrador |
+| Quién edita | Cualquiera que abra la página | Solo las cuentas de la organización, según su rol |
 | Público | Ve datos de ejemplo propios | Ve el ranking real, solo lectura |
 | Sin conexión | Funciona completo | Muestra la última copia descargada, sin edición |
 
@@ -54,23 +54,50 @@ Los datos se guardan bajo `pool-paraguay-state-v1`, en este navegador y origen. 
 
 `worker/index.ts` es un Worker de Cloudflare que sirve el sitio y expone `/api`:
 
-- `GET /api/state` es público. Las escrituras (`POST /api/actions`, `PUT /api/state`) exigen sesión de administrador.
+- `GET /api/state` es público. Las escrituras exigen una sesión, y algunas el rol de superadministrador (ver «Cuentas y roles»).
 - El servidor vuelve a aplicar las reglas de `src/domain.ts`; el navegador nunca decide los puntos. La fecha para publicar resultados se toma en hora del Paraguay.
 - Cada guardado lleva la versión que el administrador tenía a la vista. Si otra persona guardó antes, el servidor responde 409 y la aplicación muestra los datos nuevos en vez de pisarlos.
-- La sesión es una cookie `__Host-` con `HttpOnly; Secure; SameSite=Strict` de 12 horas que lleva un token al azar. La tabla `sessions` guarda solo su resumen: cerrar sesión la invalida en el servidor, «Cerrar en todos los dispositivos» borra todas y cambiar `ADMIN_PASSWORD` (mínimo 12 caracteres) también las cierra. Las escrituras desde otro origen se rechazan.
+- La sesión es una cookie `__Host-` con `HttpOnly; Secure; SameSite=Strict` de 12 horas que lleva un token al azar. La tabla `sessions` guarda solo su resumen y a qué cuenta pertenece: cerrar sesión la invalida en el servidor y «Cerrar en todos los dispositivos» borra todas las de esa cuenta. Las escrituras desde otro origen se rechazan.
 - El acceso admite cinco intentos fallidos cada 15 minutos por dirección (por prefijo /64 en IPv6) y cien entre todas. El intento se anota en la misma sentencia que lo cuenta, así que los pedidos en paralelo no pasan el límite.
 - Cada endpoint lee el cuerpo por partes y corta al pasar su tope: 1 kB el acceso, 100 kB una foto, 256 kB una acción y 10 MB un respaldo.
 - El Worker recuerda en memoria el último ranking armado y comprueba la versión en cada pedido: repetir `GET /api/state` cuesta una fila leída, no un recorrido de todas las tablas.
 - `public/_headers` define la política de contenido (solo recursos propios, sin scripts ni estilos en línea), `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` y HSTS para el sitio; `server.mjs` aplica el mismo archivo y las pruebas de navegador fallan si la política bloquea algo. Las respuestas de la API llevan `nosniff`, `no-store` y `Cross-Origin-Resource-Policy: same-origin`.
-- Cada cambio queda en el registro de auditoría (visible en Configuración), con el motivo cuando se reabre un torneo.
+- Cada cambio queda en el registro de auditoría (visible para el superadministrador en Configuración) con el correo de quien lo hizo, y con el motivo cuando se reabre un torneo. Las altas, ediciones y bajas de cuentas también se registran.
 - Jugadores, torneos, inscripciones, partidos y resultados tienen cada uno su tabla en D1 (`migrations/0002_tables.sql`, que también reparte el documento de la versión anterior). `worker/store.ts` arma el registro al leer y, al guardar, escribe solo las filas que cambiaron. Cada sentencia lleva sus filas en un parámetro JSON (`json_each`), de modo que un respaldo grande se restaura con un número fijo de consultas. Datos y auditoría se guardan en una transacción que respeta la versión del administrador.
 - Las fotos viven en el bucket R2 `PHOTOS`. `POST /api/photos` (administrador) valida el JPEG y lo guarda con el SHA-256 de su contenido como nombre; la ficha conserva solo la referencia `/api/photos/<hash>.jpg`, que se sirve con caché permanente. El navegador sube cada foto en su propia petición antes de guardar la ficha o restaurar un respaldo; al exportar, vuelve a incluir las fotos en el archivo. Las fotos que quedan sin ficha se borran de R2.
 - `GET /api/state?tag=<etiqueta>` responde sin datos cuando el visitante ya tiene la versión vigente: recargar o volver a la pestaña cuesta una fila leída y unos bytes.
 
+#### Cuentas y roles
+
+Cada persona entra con su correo y su contraseña (`migrations/0004_users.sql`, `worker/auth.ts`). Las contraseñas se guardan derivadas con PBKDF2-SHA256, 100.000 iteraciones —el máximo del runtime de Workers— y una sal por cuenta. Un correo desconocido responde igual y tarda lo mismo que una contraseña errada.
+
+| | Supervisor | Superadministrador |
+|---|---|---|
+| Jugadores, torneos, inscripciones, fixture, marcadores, publicar y reabrir resultados | Sí | Sí |
+| Exportar un respaldo y cambiar su propia contraseña | Sí | Sí |
+| Reglas de categorías y puntuación | No | Sí |
+| Restaurar un respaldo o empezar desde cero | No | Sí |
+| Cuentas: alta, rol, contraseña, desactivar y eliminar | No | Sí |
+| Registro de cambios | No | Sí |
+
+El reparto de acciones vive en `src/roles.ts`; el servidor lo hace cumplir y la interfaz solo esconde lo que no corresponde. Nadie puede cambiar su propio rol, desactivarse ni eliminarse, así que siempre queda un superadministrador activo. Cambiar la contraseña o el rol de una cuenta, o desactivarla, cierra sus sesiones abiertas.
+
+El primer superadministrador se crea desde la terminal, con la sesión de wrangler de quien administra Cloudflare. El mismo comando recupera el acceso si alguien olvida su contraseña: repone la clave, reactiva la cuenta y cierra sus sesiones.
+
+```sh
+npm run user -- correo@ejemplo.com "Nombre Apellido"                    # superadministrador en producción
+npm run user -- correo@ejemplo.com "Nombre Apellido" --role supervisor
+npm run user -- correo@ejemplo.com "Nombre Apellido" --local            # base del servidor local
+```
+
+Una cuenta creada desde Configuración, o a la que el superadministrador le repone la clave, entra con esa contraseña inicial y no puede hacer nada más hasta elegir una propia; el servidor lo exige, no solo la pantalla.
+
+La contraseña se pide sin mostrarla y nunca viaja como argumento. No hay recuperación por correo: a un supervisor le pone una contraseña nueva el superadministrador desde Configuración.
+
 Probarlo en esta máquina:
 
 ```sh
-cp .dev.vars.example .dev.vars   # y elegir una contraseña de al menos 12 caracteres
+cp .dev.vars.example .dev.vars   # correo y contraseña (12+ caracteres) del superadministrador local
 npm run dev:remote                # http://localhost:8787, datos en .data/local.sqlite y fotos en .data/photos
 ```
 
@@ -78,14 +105,14 @@ npm run dev:remote                # http://localhost:8787, datos en .data/local.
 
 Con un dominio propio conviene sumar en el panel de Cloudflare una regla de límite de peticiones para `/api/*`; en `workers.dev` no se pueden configurar.
 
-Publicarlo en Cloudflare (una sola vez los cuatro primeros pasos; R2 se activa antes desde el panel de Cloudflare):
+Publicarlo en Cloudflare (una sola vez todo menos `npm run deploy`; R2 se activa antes desde el panel de Cloudflare):
 
 ```sh
 npx wrangler login
 npx wrangler d1 create pool-paraguay      # copiar el database_id a wrangler.jsonc
 npx wrangler r2 bucket create pool-paraguay-photos
-npx wrangler secret put ADMIN_PASSWORD   # al menos 12 caracteres; mejor una frase larga o generada al azar
 npm run deploy                            # compila, aplica migraciones y publica
+npm run user -- correo@ejemplo.com "Nombre Apellido"   # primer superadministrador
 ```
 
 Para pasar datos del modo local al compartido: exportar el respaldo en el navegador, iniciar sesión en el sitio publicado y restaurarlo desde Configuración.
@@ -99,7 +126,7 @@ Para pasar datos del modo local al compartido: exportar el respaldo en el navega
 5. Asignar mesa y hora, cargar los marcadores y seguir el avance a la final. Los pases libres avanzan sin cargar un resultado. El ganador debe alcanzar el número de partidas configurado, sin empate.
 6. Publicar los resultados del torneo completo para sumar puntos. Para corregir un torneo publicado, reabrirlo con un motivo; se retiran sus puntos pero se conservan los partidos. Si cambia un ganador con resultados posteriores, quitar primero los resultados dependientes, desde la final hacia atrás.
 
-El formato inicial es eliminación directa, sin partido por el tercer puesto: ambos semifinalistas eliminados comparten el tercero; los eliminados en cuartos comparten el quinto, y así sucesivamente. Un partido disputado bloquea nuevos sorteos y cambios de inscriptos. En el modo compartido, solo el administrador modifica; el público consulta inscritos, cruces, horarios y resultados.
+El formato inicial es eliminación directa, sin partido por el tercer puesto: ambos semifinalistas eliminados comparten el tercero; los eliminados en cuartos comparten el quinto, y así sucesivamente. Un partido disputado bloquea nuevos sorteos y cambios de inscriptos. En el modo compartido, solo las cuentas con sesión modifican; el público consulta inscritos, cruces, horarios y resultados.
 
 ## Reglas del ranking
 
@@ -128,8 +155,9 @@ Si Playwright no puede descargar su navegador, `PLAYWRIGHT_CHANNEL=chrome` usa e
 - `src/useStore.ts`: una sola interfaz sobre `storage.ts` (local) y `remote.ts` (API).
 - `src/useHashRoute.ts`: páginas y diálogos enlazables en el hash.
 - `src/pages/`, `src/components/`: una página o pieza de interfaz por archivo. `App.tsx` solo arma cabecera, rutas y diálogos.
-- `worker/`, `migrations/`, `wrangler.jsonc`: backend de Cloudflare. `worker/store.ts` lee y escribe las tablas. `scripts/d1-node.mjs` y `scripts/r2-node.mjs` adaptan SQLite y una carpeta a las API de D1 y R2 para pruebas y desarrollo.
+- `src/roles.ts`: roles y reparto de acciones, compartido entre navegador y Worker.
+- `worker/`, `migrations/`, `wrangler.jsonc`: backend de Cloudflare. `worker/store.ts` lee y escribe las tablas, `worker/auth.ts` lleva sesiones, cuentas y roles, y `scripts/create-user.mjs` crea o recupera cuentas. `scripts/d1-node.mjs` y `scripts/r2-node.mjs` adaptan SQLite y una carpeta a las API de D1 y R2 para pruebas y desarrollo.
 
 ## Próxima etapa
 
-Una sola contraseña de administrador alcanza para uno o pocos organizadores. Si se suman más, conviene pasar a cuentas individuales para que la auditoría registre quién hizo cada cambio, y a versiones por torneo para que dos organizadores no se crucen al guardar. El público ve los cambios al recargar o volver a la pestaña; seguir partidos en directo requiere actualizaciones automáticas. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como doble eliminación o grupos.
+Todos los cambios comparten una versión global: si se suman organizadores que trabajan a la vez, conviene pasar a versiones por torneo para que no se crucen al guardar. El público ve los cambios al recargar o volver a la pestaña; seguir partidos en directo requiere actualizaciones automáticas. Quedan pendientes las reglas de ascenso entre categorías y, si se requieren, otros formatos de torneo como doble eliminación o grupos.

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, CalendarDays, Check, Download, Flag, Lock, Moon, Settings2, Sun, Trophy, Users, WifiOff } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import FloralParallax from './FloralParallax';
+import { PasswordForm } from './components/AccountPanel';
 import LoginForm from './components/LoginForm';
 import ModalFrame from './components/ModalFrame';
 import Field from './components/Field';
@@ -18,6 +19,7 @@ import SettingsPage from './pages/SettingsPage';
 import TournamentsPage from './pages/TournamentsPage';
 import { downloadJSON } from './storage';
 import { pageHref, useHashRoute, type Page } from './useHashRoute';
+import { ROLE_LABELS } from './roles';
 import { useStore } from './useStore';
 import { useTheme } from './useTheme';
 
@@ -35,11 +37,11 @@ const NAV = [{ name: 'Ranking', icon: Trophy }, { name: 'Jugadores', icon: Users
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'No se pudo guardar el cambio.';
 
 export default function App() {
+  const [modal, setModal] = useState<Modal>(null);
   const store = useStore();
   const { state, canEdit } = store;
   const { route, navigate } = useHashRoute();
   const { theme, toggle: toggleTheme } = useTheme();
-  const [modal, setModal] = useState<Modal>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
@@ -94,8 +96,10 @@ export default function App() {
     <TournamentCard key={t.id} tournament={t} state={state} page={page} canEdit={canEdit} onEdit={() => open({ kind: 'tournament', tournament: t })} onResults={() => open({ kind: 'results', tournament: t })} />
   );
 
-  const modalTitle = modal
-    ? { player: modal.kind === 'player' && modal.player ? 'Editar jugador' : 'Agregar jugador', tournament: modal.kind === 'tournament' && modal.tournament ? 'Editar torneo' : 'Crear torneo', results: modal.kind === 'results' ? modal.tournament.name : '', reopen: 'Corregir resultados', replace: store.remote ? 'Reemplazar datos publicados' : 'Reemplazar datos locales', login: 'Acceso de administrador' }[modal.kind]
+  // La contraseña la puso el superadministrador: antes de cualquier otra cosa, la persona elige la suya.
+  const mustChangePassword = Boolean(store.user?.mustChangePassword);
+  const modalTitle = mustChangePassword ? 'Elegí tu contraseña' : modal
+    ? { player: modal.kind === 'player' && modal.player ? 'Editar jugador' : 'Agregar jugador', tournament: modal.kind === 'tournament' && modal.tournament ? 'Editar torneo' : 'Crear torneo', results: modal.kind === 'results' ? modal.tournament.name : '', reopen: 'Corregir resultados', replace: store.remote ? 'Reemplazar datos publicados' : 'Reemplazar datos locales', login: 'Iniciar sesión' }[modal.kind]
     : profile ? 'Perfil del jugador' : shownTournament?.name;
 
   return (
@@ -142,7 +146,7 @@ export default function App() {
             </div>
             <div className="footer-local">
               {store.remote
-                ? canEdit ? <span className="local-badge"><span />Sesión de administrador</span> : <button className="text-button" onClick={() => open({ kind: 'login' })}><Lock size={14} />Acceso de administrador</button>
+                ? store.user ? <span className="local-badge"><span />{store.user.name} · {ROLE_LABELS[store.user.role]}</span> : <button className="text-button" onClick={() => open({ kind: 'login' })}><Lock size={14} />Iniciar sesión</button>
                 : <><span className="local-badge"><span />Guardado en este dispositivo</span><span>{state.demo ? 'Datos de demostración' : 'Registro local'} · Sin sincronización</span></>}
             </div>
           </footer>
@@ -153,14 +157,19 @@ export default function App() {
       {needRefresh && <div className="update-banner" role="status">Hay una nueva versión disponible.<button className="button" onClick={() => void updateServiceWorker(true)}>Actualizar</button></div>}
 
       {modalTitle && (
-        <ModalFrame wide={!modal && Boolean(shownTournament)} key={modal?.kind ?? profile?.id ?? shownTournament?.id} title={modalTitle} onClose={closeModal}>
+        <ModalFrame wide={!mustChangePassword && !modal && Boolean(shownTournament)} key={mustChangePassword ? 'password' : modal?.kind ?? profile?.id ?? shownTournament?.id} title={modalTitle} onClose={mustChangePassword ? () => void store.logout(false) : closeModal}>
           {error && <p role="alert" className="error">{error}</p>}
+          {mustChangePassword && <>
+            <p className="muted">Tu cuenta tiene la contraseña inicial que te pasaron. Elegí una propia, de al menos 12 caracteres, para empezar a cargar datos.</p>
+            <PasswordForm currentLabel="Contraseña inicial" onDone={() => void store.refresh().then(() => setNotice('Contraseña cambiada. Ya podés cargar resultados.'))} />
+          </>}
+          {!mustChangePassword && <>
           {!modal && profile && <PlayerProfile player={profile} rules={state.rules} canEdit={canEdit} onEdit={() => open({ kind: 'player', player: profile })} onShare={() => void share(profile.name)} />}
           {!modal && shownTournament && <TournamentManager onLegacyResults={() => open({ kind: 'results', tournament: shownTournament })} onCreatePlayer={() => open({ kind: 'player', category: shownTournament.category })} tournament={shownTournament} submit={async action => { try { await store.dispatch(action); setError(''); setNotice(savedNotice); return true; } catch (e) { setError(errorMessage(e)); return false; } }} onEdit={() => open({ kind: 'tournament', tournament: shownTournament })} state={state} canEdit={canEdit} onReopen={() => open({ kind: 'reopen', tournament: shownTournament })} onShare={() => void share(shownTournament.name)} />}
           {modal?.kind === 'player' && <PlayerForm defaultCategory={modal.category} state={state} player={modal.player} submit={dispatch} />}
           {modal?.kind === 'tournament' && <TournamentForm state={state} tournament={modal.tournament} submit={dispatch} />}
           {modal?.kind === 'results' && <ResultsForm tournament={modal.tournament} state={state} submit={dispatch} />}
-          {modal?.kind === 'login' && <LoginForm submit={password => void run(() => store.login(password), 'Sesión iniciada. Ya podés cargar resultados.')} />}
+          {modal?.kind === 'login' && <LoginForm submit={(email, password) => void run(() => store.login(email, password), 'Sesión iniciada. Ya podés cargar resultados.')} />}
           {modal?.kind === 'reopen' && (
             <form className="form-stack" onSubmit={e => { e.preventDefault(); dispatch({ type: 'results.reopen', tournamentId: modal.tournament.id, reason: String(new FormData(e.currentTarget).get('reason')) }); }}>
               <p>Se retirarán del ranking los puntos de <strong>{modal.tournament.name}</strong>. Luego podrás cargar los resultados corregidos.</p>
@@ -176,6 +185,7 @@ export default function App() {
               <button className="button danger" onClick={() => void run(() => store.replace(modal.state))}>Confirmar reemplazo</button>
             </div>
           )}
+          </>}
         </ModalFrame>
       )}
     </div>

@@ -10,6 +10,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "dev:remote": "npm run build:remote && node server.mjs",
     "deploy": "npm run build:remote && wrangler d1 migrations apply pool-paraguay --remote && wrangler deploy",
+    "user": "node scripts/create-user.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:remote": "playwright test -c playwright.remote.config.ts"

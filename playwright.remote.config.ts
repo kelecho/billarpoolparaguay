@@ -12,6 +12,6 @@ export default defineConfig({
     command: `npm run build:remote && node server.mjs --port ${PORT}`,
     url: `http://localhost:${PORT}/api/state`,
     reuseExistingServer: false,
-    env: { DB_PATH: ':memory:', ADMIN_PASSWORD: 'clave-e2e-remota' },
+    env: { DB_PATH: ':memory:', ADMIN_EMAIL: 'admin@pool.test', ADMIN_PASSWORD: 'clave-e2e-remota' },
   },
 });

@@ -372,6 +372,13 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 .audit-list li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 12px; line-height: 1.5; }
 .audit-list time { font-family: var(--mono); font-size: 10px; color: var(--muted); }
 .audit-list small { display: block; color: var(--muted); }
+.account-list { margin: 0; padding: 0; list-style: none; }
+.account-list > li { display: flex; flex-direction: column; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.account-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; font-size: 13px; }
+.account-row small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.account-row .text-button { grid-column: 1 / -1; justify-self: start; }
+.check { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; }
+.check input { width: 18px; height: 18px; accent-color: var(--ink); }
 .footer-local .text-button { font-size: 11px; color: var(--muted); font-weight: 600; }
 /* Tema oscuro: salón de pool de noche. Azul profundo de fondo; el rojo, el blanco y el dorado son las luces. */
 :root[data-theme='dark'] {

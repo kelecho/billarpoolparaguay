@@ -1,9 +1,11 @@
 import { validateState, type Action, type Player, type State } from './domain';
 import { isPhotoRef, validPlayerPhoto } from './playerPhoto';
+import type { Role, User } from './roles';
 
 /** `tag` identifica la versión guardada en el servidor; con ella se pregunta si hubo cambios sin bajar todo. */
 export type Snapshot = { state: State; version: number; savedAt: string; tag: string };
-export type AuditEntry = { at: string; type: string; summary: string; reason: string | null };
+export type AuditEntry = { at: string; type: string; summary: string; reason: string | null; actor: string | null };
+export type AccountInput = { email: string; name: string; role: Role; active?: boolean; password?: string };
 
 /** La compilación `--mode remote` lee y escribe en el servidor; la normal guarda en el navegador. */
 export const REMOTE = import.meta.env.MODE === 'remote';
@@ -42,11 +44,10 @@ export function cachedSnapshot(): Snapshot | null {
   }
 }
 
-export async function fetchSnapshot() {
-  const cached = cachedSnapshot();
-  const data = await request<{ state?: unknown; version: number; admin: boolean }>(`/api/state${cached?.tag ? `?tag=${encodeURIComponent(cached.tag)}` : ''}`);
-  // Sin `state` el servidor confirma que la copia guardada sigue vigente.
-  return { ...snapshot(data.state || !cached ? data : { ...data, state: cached.state }), admin: data.admin };
+/** `current` es lo que la página ya tiene: si el servidor confirma que sigue vigente, se devuelve tal cual, sin volver a validar ni guardar. */
+export async function fetchSnapshot(current: Snapshot | null) {
+  const data = await request<{ state?: unknown; version: number; user: User | null }>(`/api/state${current?.tag ? `?tag=${encodeURIComponent(current.tag)}` : ''}`);
+  return { ...(data.state || !current ? snapshot(data) : current), user: data.user };
 }
 
 /** Pocas tareas a la vez: un respaldo con cientos de fotos no satura la conexión ni el servidor. */
@@ -92,7 +93,13 @@ export const sendAction = async (action: Action, version: number) => {
 export const replaceState = async (state: State, version: number) =>
   snapshot(await request('/api/state', { method: 'PUT', body: JSON.stringify({ state: { ...state, players: await pooled(state.players, uploaded) }, version }) }));
 
-export const login = (password: string) => request<{ admin: boolean }>('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
-/** Con `all` el servidor cierra también las sesiones abiertas en otros dispositivos. */
-export const logout = (all = false) => request<{ admin: boolean }>('/api/logout', { method: 'POST', body: JSON.stringify({ all }) });
+export const login = (email: string, password: string) => request<{ user: User }>('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+/** Con `all` el servidor cierra también las sesiones de la cuenta abiertas en otros dispositivos. */
+export const logout = (all = false) => request<{ user: null }>('/api/logout', { method: 'POST', body: JSON.stringify({ all }) });
 export const fetchAudit = async () => (await request<{ entries: AuditEntry[] }>('/api/audit')).entries;
+
+export const changePassword = (current: string, next: string) => request<{ changed: boolean }>('/api/password', { method: 'POST', body: JSON.stringify({ current, next }) });
+export const fetchUsers = async () => (await request<{ users: User[] }>('/api/users')).users;
+export const createUser = (account: AccountInput) => request<{ user: User }>('/api/users', { method: 'POST', body: JSON.stringify(account) });
+export const updateUser = (id: string, changes: Partial<AccountInput>) => request<{ user: User }>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(changes) });
+export const deleteUser = (id: string) => request<{ deleted: boolean }>(`/api/users/${id}`, { method: 'DELETE', body: '{}' });

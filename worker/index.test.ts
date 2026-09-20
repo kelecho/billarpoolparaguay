@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createD1 } from '../scripts/d1-node.mjs';
 // @ts-expect-error: adaptador en JavaScript, sin tipos
 import { createR2 } from '../scripts/r2-node.mjs';
+// @ts-expect-error: comando en JavaScript, sin tipos
+import { saveUser } from '../scripts/create-user.mjs';
 import { applyAction, createState, type Action } from '../src/domain.ts';
 import worker, { type Env } from './index.ts';
 
@@ -19,23 +21,27 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
   return { status: response.status, headers: response.headers, data: await response.json() as any };
 }
 
-async function login() {
-  const response = await call('POST', '/api/login', { password: 'clave-de-prueba' });
+const ADMIN = { email: 'admin@pool.test', name: 'Ada Admin', role: 'superadmin', password: 'clave-de-prueba' };
+const SUPERVISOR = { email: 'supervisor@pool.test', name: 'Susana Supervisora', role: 'supervisor', password: 'clave-de-supervisora' };
+
+async function login(account = ADMIN) {
+  const response = await call('POST', '/api/login', { email: account.email, password: account.password });
   cookie = response.headers.get('set-cookie')!.split(';')[0];
   return response;
 }
 
 const player = { id: 'ana', name: 'Ana Vera', city: 'Asunción', club: '', initialPoints: 900 };
 
-beforeEach(() => {
+beforeEach(async () => {
   cookie = '';
-  env = { DB: createD1(), PHOTOS: createR2(), ADMIN_PASSWORD: 'clave-de-prueba', ASSETS: { fetch: async () => new Response('app') } } as unknown as Env;
+  env = { DB: createD1(), PHOTOS: createR2(), ASSETS: { fetch: async () => new Response('app') } } as unknown as Env;
+  await saveUser(env.DB, ADMIN);
 });
 
 describe('API del ranking compartido', () => {
   it('publica el ranking sin sesión y rechaza escrituras anónimas', async () => {
     const state = await call('GET', '/api/state');
-    expect(state.data).toMatchObject({ version: 0, admin: false, state: { players: [] } });
+    expect(state.data).toMatchObject({ version: 0, user: null, state: { players: [] } });
     expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 })).status).toBe(401);
     expect((await call('GET', '/api/audit')).status).toBe(401);
   });
@@ -43,19 +49,23 @@ describe('API del ranking compartido', () => {
   it('inicia sesión con cookie protegida y bloquea tras cinco intentos fallidos', async () => {
     const ok = await login();
     expect(ok.headers.get('set-cookie')).toMatch(/HttpOnly; Secure; SameSite=Strict/);
-    expect((await call('GET', '/api/state')).data.admin).toBe(true);
+    expect(ok.data.user).toEqual({ id: expect.any(String), email: ADMIN.email, name: ADMIN.name, role: 'superadmin', active: true, mustChangePassword: false });
+    expect((await call('GET', '/api/state')).data.user).toEqual(ok.data.user);
     cookie = '';
-    for (let i = 0; i < 5; i++) expect((await call('POST', '/api/login', { password: 'incorrecta' })).status).toBe(401);
-    expect((await call('POST', '/api/login', { password: 'clave-de-prueba' })).status).toBe(429);
+    for (let i = 0; i < 5; i++) expect((await call('POST', '/api/login', { email: ADMIN.email, password: 'incorrecta' })).status).toBe(401);
+    expect((await call('POST', '/api/login', { email: ADMIN.email, password: ADMIN.password })).status).toBe(429);
   });
 
-  it('no acepta una sesión tras cambiar la contraseña ni una cookie inventada', async () => {
+  it('no distingue un correo desconocido de una contraseña errada ni acepta una cookie inventada', async () => {
+    const unknown = await call('POST', '/api/login', { email: 'nadie@pool.test', password: ADMIN.password });
+    const wrong = await call('POST', '/api/login', { email: ADMIN.email, password: 'incorrecta-123' });
+    expect([unknown.status, unknown.data]).toEqual([wrong.status, wrong.data]);
+    expect(unknown.status).toBe(401);
+    expect((await call('POST', '/api/login', { email: ` ${ADMIN.email.toUpperCase()} `, password: ADMIN.password })).status).toBe(200);
     const response = await login();
-    expect(response.headers.get('set-cookie')).toMatch(/^__Host-pool_admin=[0-9a-f]{64};/);
-    env.ADMIN_PASSWORD = 'otra-clave-distinta';
-    expect((await call('GET', '/api/state')).data.admin).toBe(false);
-    cookie = `__Host-pool_admin=${'a'.repeat(64)}`;
-    expect((await call('GET', '/api/state')).data.admin).toBe(false);
+    expect(response.headers.get('set-cookie')).toMatch(/^__Host-pool_session=[0-9a-f]{64};/);
+    cookie = `__Host-pool_session=${'a'.repeat(64)}`;
+    expect((await call('GET', '/api/state')).data.user).toBeNull();
   });
 
   it('cerrar sesión la invalida en el servidor, también en otros dispositivos', async () => {
@@ -64,9 +74,9 @@ describe('API del ranking compartido', () => {
     await login();
     const laptop = cookie;
     expect((await call('POST', '/api/logout', { all: false })).status).toBe(200);
-    expect((await call('GET', '/api/state')).data.admin).toBe(false);
+    expect((await call('GET', '/api/state')).data.user).toBeNull();
     cookie = phone;
-    expect((await call('GET', '/api/state')).data.admin).toBe(true);
+    expect((await call('GET', '/api/state')).data.user).toMatchObject({ email: ADMIN.email });
     expect((await call('POST', '/api/logout', { all: true })).status).toBe(200);
     for (cookie of [phone, laptop]) expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 })).status).toBe(401);
     cookie = '';
@@ -80,16 +90,11 @@ describe('API del ranking compartido', () => {
     const stored = await env.DB.prepare('SELECT id FROM sessions').first<{ id: string }>();
     expect(cookie).not.toContain(stored!.id);
     await env.DB.prepare('UPDATE sessions SET expires_at = ?').bind(Math.floor(Date.now() / 1000) - 1).run();
-    expect((await call('GET', '/api/state')).data.admin).toBe(false);
-  });
-
-  it('exige una contraseña de administrador larga', async () => {
-    env.ADMIN_PASSWORD = 'corta-123';
-    expect((await call('POST', '/api/login', { password: 'corta-123' })).status).toBe(503);
+    expect((await call('GET', '/api/state')).data.user).toBeNull();
   });
 
   it('limita los intentos por red IPv6, en paralelo y entre todas las direcciones', async () => {
-    const attempt = (ip: string, password = 'incorrecta') => call('POST', '/api/login', { password }, { 'cf-connecting-ip': ip });
+    const attempt = (ip: string, password = 'incorrecta') => call('POST', '/api/login', { email: ADMIN.email, password }, { 'cf-connecting-ip': ip });
     const parallel = await Promise.all(Array.from({ length: 12 }, (_, i) => attempt(`2001:db8:1:2::${i + 1}`)));
     expect(parallel.filter(r => r.status === 401)).toHaveLength(5);
     expect((await attempt('2001:db8:1:2:ffff::9', 'clave-de-prueba')).status).toBe(429);
@@ -102,7 +107,7 @@ describe('API del ranking compartido', () => {
 
   it('corta los cuerpos demasiado grandes sin leerlos enteros', async () => {
     const big = 'x'.repeat(5000);
-    expect((await call('POST', '/api/login', { password: big })).status).toBe(413);
+    expect((await call('POST', '/api/login', { email: ADMIN.email, password: big })).status).toBe(413);
     const streamed = await worker.fetch(new Request(`${ORIGIN}/api/login`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, duplex: 'half',
       body: new ReadableStream({ pull(controller) { controller.enqueue(new TextEncoder().encode(big)); } }),
@@ -125,7 +130,7 @@ describe('API del ranking compartido', () => {
     env.DB.batch = batch;
     await login();
     await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 });
-    expect((await call('GET', '/api/state')).data).toMatchObject({ version: 1, admin: true, state: { players: [{ id: 'ana' }] } });
+    expect((await call('GET', '/api/state')).data).toMatchObject({ version: 1, user: { role: 'superadmin' }, state: { players: [{ id: 'ana' }] } });
   });
 
   it('aplica acciones con las reglas del dominio, versiona y audita', async () => {
@@ -138,7 +143,7 @@ describe('API del ranking compartido', () => {
     expect(duplicate.status).toBe(422);
     expect(duplicate.data.error).toMatch(/Ya existe/);
     expect((await call('GET', '/api/state')).data.state.players).toHaveLength(1);
-    expect((await call('GET', '/api/audit')).data.entries).toMatchObject([{ type: 'player.save', summary: 'Agregó al jugador Ana Vera' }]);
+    expect((await call('GET', '/api/audit')).data.entries).toMatchObject([{ type: 'player.save', summary: 'Agregó al jugador Ana Vera', actor: ADMIN.email }]);
   });
 
   it('guarda el motivo de una corrección en la auditoría', async () => {
@@ -162,6 +167,116 @@ describe('API del ranking compartido', () => {
     expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 }, { origin: 'https://otro.example' })).status).toBe(403);
     const page = await worker.fetch(new Request(`${ORIGIN}/torneos`), env);
     expect(await page.text()).toBe('app');
+  });
+});
+
+describe('Cuentas y roles', () => {
+  const account = { email: 'Nueva@Pool.Test ', name: ' Nora Nueva ', role: 'supervisor', password: 'clave-de-nora-123' };
+
+  it('el supervisor carga datos pero no toca reglas, respaldos, cuentas ni auditoría', async () => {
+    await saveUser(env.DB, SUPERVISOR);
+    await login(SUPERVISOR);
+    expect((await call('GET', '/api/state')).data.user).toMatchObject({ role: 'supervisor', name: SUPERVISOR.name });
+    expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 })).status).toBe(200);
+    const rules = createState(false).rules;
+    expect((await call('POST', '/api/actions', { action: { type: 'rules.save', rules }, version: 1 })).status).toBe(403);
+    expect((await call('PUT', '/api/state', { state: createState(false), version: 1 })).status).toBe(403);
+    expect((await call('GET', '/api/audit')).status).toBe(403);
+    expect((await call('GET', '/api/users')).status).toBe(403);
+    expect((await call('POST', '/api/users', account)).status).toBe(403);
+    await login();
+    expect((await call('POST', '/api/actions', { action: { type: 'rules.save', rules }, version: 1 })).status).toBe(200);
+    expect((await call('GET', '/api/audit')).data.entries.map((e: { actor: string }) => e.actor)).toEqual([ADMIN.email, SUPERVISOR.email]);
+  });
+
+  it('el superadministrador crea, edita, desactiva y elimina cuentas, y todo queda auditado', async () => {
+    expect((await call('GET', '/api/users')).status).toBe(401);
+    await login();
+    const created = await call('POST', '/api/users', account);
+    expect(created).toMatchObject({ status: 201, data: { user: { email: 'nueva@pool.test', name: 'Nora Nueva', role: 'supervisor', active: true } } });
+    expect((await call('POST', '/api/users', { ...account, name: 'Otra' })).status).toBe(422);
+    expect((await call('POST', '/api/users', { ...account, email: 'corta@pool.test', password: 'corta' })).status).toBe(422);
+    expect((await call('POST', '/api/users', { ...account, email: 'rol@pool.test', role: 'dueño' })).status).toBe(422);
+    expect((await call('POST', '/api/users', { ...account, email: 'sin-arroba' })).status).toBe(422);
+    const stored = await env.DB.prepare('SELECT password_hash FROM users WHERE email = ?').bind('nueva@pool.test').first<{ password_hash: string }>();
+    expect(stored!.password_hash).toMatch(/^pbkdf2-sha256\$100000\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
+    expect(JSON.stringify((await call('GET', '/api/users')).data)).not.toContain('pbkdf2');
+
+    const id = created.data.user.id;
+    const admin = cookie;
+    const nora = { ...account, email: 'nueva@pool.test', password: 'clave-propia-de-nora' };
+    await login({ ...nora, password: account.password });
+    expect((await call('POST', '/api/password', { current: account.password, next: nora.password })).status).toBe(200);
+    const noraSession = cookie;
+    cookie = admin;
+    expect((await call('PATCH', `/api/users/${id}`, { role: 'superadmin' })).data.user.role).toBe('superadmin');
+    cookie = noraSession;
+    expect((await call('GET', '/api/state')).data.user).toBeNull();
+    cookie = admin;
+    expect((await call('PATCH', `/api/users/${id}`, { active: false })).status).toBe(200);
+    cookie = '';
+    expect((await call('POST', '/api/login', { email: nora.email, password: nora.password })).status).toBe(401);
+    cookie = admin;
+    expect((await call('PATCH', `/api/users/${id}`, { active: true, password: 'otra-clave-de-nora' })).status).toBe(200);
+    expect((await login({ ...nora, password: 'otra-clave-de-nora' })).status).toBe(200);
+    cookie = admin;
+    expect((await call('DELETE', `/api/users/${id}`, {})).status).toBe(200);
+    expect((await call('GET', '/api/users')).data.users).toHaveLength(1);
+    expect((await call('GET', '/api/audit')).data.entries.map((e: { type: string }) => e.type)).toEqual(['user.delete', 'user.update', 'user.update', 'user.update', 'user.password', 'user.create']);
+  });
+
+  it('nadie se quita a sí mismo el acceso: siempre queda un superadministrador', async () => {
+    const me = (await login()).data.user.id;
+    expect((await call('PATCH', `/api/users/${me}`, { role: 'supervisor' })).status).toBe(422);
+    expect((await call('PATCH', `/api/users/${me}`, { active: false })).status).toBe(422);
+    expect((await call('PATCH', `/api/users/${me}`, { password: 'sin-la-clave-actual' })).status).toBe(422);
+    expect((await call('DELETE', `/api/users/${me}`, {})).status).toBe(422);
+    expect((await call('PATCH', `/api/users/${me}`, { name: 'Ada Lovelace' })).data.user).toMatchObject({ name: 'Ada Lovelace', role: 'superadmin' });
+  });
+
+  it('cada persona cambia su contraseña con la actual y se cierran sus otras sesiones', async () => {
+    await login();
+    const other = cookie;
+    await login();
+    expect((await call('POST', '/api/password', { current: 'no-es-la-actual', next: 'clave-nueva-larga' })).status).toBe(422);
+    expect((await call('POST', '/api/password', { current: ADMIN.password, next: 'corta' })).status).toBe(422);
+    expect((await call('POST', '/api/password', { current: ADMIN.password, next: 'clave-nueva-larga' })).status).toBe(200);
+    expect((await call('GET', '/api/state')).data.user).toMatchObject({ email: ADMIN.email });
+    cookie = other;
+    expect((await call('GET', '/api/state')).data.user).toBeNull();
+    cookie = '';
+    expect((await call('POST', '/api/login', { email: ADMIN.email, password: ADMIN.password })).status).toBe(401);
+    expect((await login({ ...ADMIN, password: 'clave-nueva-larga' })).status).toBe(200);
+  });
+
+  it('con la contraseña inicial solo se puede elegir una propia o salir', async () => {
+    await login();
+    await call('POST', '/api/users', account);
+    const nora = { ...account, email: 'nueva@pool.test' };
+    expect((await login(nora)).data.user).toMatchObject({ mustChangePassword: true });
+    expect((await call('GET', '/api/state')).data.user).toMatchObject({ mustChangePassword: true });
+    const blocked = await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 });
+    expect(blocked).toMatchObject({ status: 403, data: { error: 'Elegí tu propia contraseña antes de continuar.' } });
+    expect((await call('POST', '/api/photos', { photo: 'x' })).status).toBe(403);
+    expect((await call('POST', '/api/password', { current: nora.password, next: nora.password })).status).toBe(422);
+    expect((await call('POST', '/api/password', { current: nora.password, next: 'clave-propia-de-nora' })).status).toBe(200);
+    expect((await call('GET', '/api/state')).data.user).toMatchObject({ mustChangePassword: false });
+    expect((await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 })).status).toBe(200);
+
+    // Si el superadministrador le repone la clave, vuelve a tener que elegir una propia.
+    const noraId = (await call('GET', '/api/state')).data.user.id;
+    await login();
+    expect((await call('PATCH', `/api/users/${noraId}`, { password: 'clave-repuesta-123' })).data.user).toMatchObject({ mustChangePassword: true });
+    expect((await login({ ...nora, password: 'clave-repuesta-123' })).data.user.mustChangePassword).toBe(true);
+    expect((await call('POST', '/api/logout', { all: true })).status).toBe(200);
+  });
+
+  it('el comando de recuperación repone la contraseña y cierra las sesiones abiertas', async () => {
+    await login();
+    await saveUser(env.DB, { ...ADMIN, password: 'clave-recuperada-1' });
+    expect((await call('GET', '/api/state')).data.user).toBeNull();
+    expect((await login({ ...ADMIN, password: 'clave-recuperada-1' })).status).toBe(200);
+    expect((await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first<{ n: number }>())!.n).toBe(1);
   });
 });
 
@@ -286,7 +401,7 @@ describe('Tablas por entidad', () => {
     await login();
     const saved = await call('POST', '/api/actions', { action: { type: 'player.save', player }, version: 0 });
     const current = await call('GET', `/api/state?tag=${encodeURIComponent(saved.data.tag)}`);
-    expect(current.data).toEqual({ version: 1, tag: saved.data.tag, admin: true });
+    expect(current.data).toEqual({ version: 1, tag: saved.data.tag, user: expect.objectContaining({ email: ADMIN.email }) });
     const stale = await call('GET', '/api/state?tag=0-');
     expect(stale.data).toMatchObject({ version: 1, tag: saved.data.tag, state: { players: [{ id: 'ana' }] } });
   });

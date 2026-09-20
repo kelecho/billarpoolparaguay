@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 // Modo compartido: compilación `--mode remote` servida por server.mjs con una base SQLite nueva.
 test.describe.configure({ mode: 'serial' });
@@ -11,6 +11,14 @@ test.beforeEach(async ({ context }) => {
   context.on('console', message => { if (/Content Security Policy|Refused to/i.test(message.text())) blocked.push(message.text()); });
 });
 test.afterEach(() => expect(blocked).toEqual([]));
+
+const ADMIN = { email: 'admin@pool.test', password: 'clave-e2e-remota' };
+async function signIn(page: Page, { email, password }: { email: string; password: string }) {
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+  await page.getByLabel('Correo').fill(email);
+  await page.getByLabel('Contraseña', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Ingresar' }).click();
+}
 
 test('el público ve el ranking sin controles de edición', async ({ page }) => {
   const response = await page.goto('/');
@@ -26,17 +34,13 @@ test('el público ve el ranking sin controles de edición', async ({ page }) => 
 
 test('una contraseña incorrecta no abre la sesión', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Acceso de administrador' }).click();
-  await page.getByLabel('Contraseña de administrador').fill('incorrecta');
-  await page.getByRole('button', { name: 'Ingresar' }).click();
-  await expect(page.getByRole('alert')).toContainText('La contraseña no es correcta');
+  await signIn(page, { ...ADMIN, password: 'incorrecta-123' });
+  await expect(page.getByRole('alert')).toContainText('El correo o la contraseña no son correctos');
 });
 
 test('el administrador publica y otra persona lo ve sin iniciar sesión', async ({ page, browser }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Acceso de administrador' }).click();
-  await page.getByLabel('Contraseña de administrador').fill('clave-e2e-remota');
-  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await signIn(page, ADMIN);
   await page.getByRole('button', { name: 'Agregar jugador' }).click();
   await page.getByLabel('Nombre y apellido').fill('Remota Prueba');
   await page.getByLabel('Ciudad', { exact: true }).fill('Villarrica');
@@ -59,6 +63,7 @@ test('el administrador publica y otra persona lo ve sin iniciar sesión', async 
 
   await page.getByRole('navigation').getByRole('link', { name: 'Configuración' }).click();
   await expect(page.getByText('Agregó al jugador Remota Prueba')).toBeVisible();
+  await expect(page.locator('.audit-list').getByText(ADMIN.email).first()).toBeVisible();
 
   // El respaldo lleva la foto adentro y restaurarlo la vuelve a subir.
   const downloaded = page.waitForEvent('download');
@@ -78,9 +83,7 @@ test('el administrador publica y otra persona lo ve sin iniciar sesión', async 
 
 test('el administrador sortea y publica un torneo y el visitante consulta el fixture', async ({ page, browser }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Acceso de administrador' }).click();
-  await page.getByLabel('Contraseña de administrador').fill('clave-e2e-remota');
-  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await signIn(page, ADMIN);
   await page.getByRole('navigation').getByRole('link', { name: 'Torneos', exact: true }).click();
   await page.getByRole('button', { name: 'Crear torneo' }).click();
   await page.getByLabel('Nombre del torneo').fill('Copa remota');
@@ -118,5 +121,51 @@ test('el administrador sortea y publica un torneo y el visitante consulta el fix
   await visitor.reload();
   await expect(visitor.getByRole('heading', { name: 'Clasificación final' })).toBeVisible();
   await expect(visitor.getByRole('dialog')).toContainText('+300');
+  await context.close();
+});
+
+test('el superadministrador crea una supervisora, que entra con permisos limitados y cambia su contraseña', async ({ page, browser }) => {
+  await page.goto('/');
+  await signIn(page, ADMIN);
+  await expect(page.getByText('Superadministrador local · Superadministrador')).toBeVisible();
+  await page.getByRole('navigation').getByRole('link', { name: 'Configuración' }).click();
+  await page.getByRole('button', { name: 'Agregar cuenta' }).click();
+  await page.getByLabel('Nombre y apellido').fill('Susana Supervisora');
+  await page.getByLabel('Correo').fill('susana@pool.test');
+  await expect(page.getByLabel('Rol')).toHaveValue('supervisor');
+  await page.getByLabel('Contraseña inicial').fill('clave-inicial-susana');
+  await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await expect(page.locator('.account-list')).toContainText('susana@pool.test');
+  await expect(page.getByText('Creó la cuenta de Susana Supervisora (Supervisor)')).toBeVisible();
+
+  const context = await browser.newContext();
+  const susana = await context.newPage();
+  await susana.goto('/');
+  await signIn(susana, { email: 'susana@pool.test', password: 'clave-inicial-susana' });
+  await expect(susana.getByText('Susana Supervisora · Supervisor')).toBeVisible();
+  // La contraseña se la puso otra persona: antes de cargar nada tiene que elegir la suya.
+  const first = susana.getByRole('dialog', { name: 'Elegí tu contraseña' });
+  await expect(susana.getByRole('button', { name: 'Agregar jugador' })).toHaveCount(0);
+  await first.getByLabel('Contraseña inicial').fill('clave-inicial-susana');
+  await first.getByLabel('Contraseña nueva', { exact: true }).fill('clave-propia-de-susana');
+  await first.getByLabel('Repetir contraseña nueva').fill('clave-propia-de-susana');
+  await first.getByRole('button', { name: 'Cambiar contraseña' }).click();
+  await expect(susana.getByRole('status')).toContainText('Contraseña cambiada. Ya podés cargar resultados.');
+  await expect(susana.getByRole('button', { name: 'Agregar jugador' })).toBeVisible();
+  await susana.getByRole('navigation').getByRole('link', { name: 'Configuración' }).click();
+  await expect(susana.getByRole('heading', { name: 'Mi cuenta' })).toBeVisible();
+  for (const name of ['Cuentas', 'Registro de cambios', 'Nuevo registro']) await expect(susana.getByRole('heading', { name })).toHaveCount(0);
+  await expect(susana.getByRole('button', { name: 'Restaurar respaldo' })).toHaveCount(0);
+  await expect(susana.getByRole('button', { name: 'Guardar reglas' })).toHaveCount(0);
+
+  // Al desactivarla, su sesión deja de valer en el servidor aunque la pestaña siga abierta.
+  await page.getByRole('button', { name: 'Editar a Susana Supervisora' }).click();
+  await page.getByLabel('Cuenta activa').uncheck();
+  await page.getByRole('button', { name: 'Guardar cuenta' }).click();
+  await expect(page.locator('.account-list')).toContainText('inactiva');
+  await susana.reload();
+  await expect(susana.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+  await signIn(susana, { email: 'susana@pool.test', password: 'clave-propia-de-susana' });
+  await expect(susana.getByRole('alert')).toContainText('El correo o la contraseña no son correctos');
   await context.close();
 });

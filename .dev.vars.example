@@ -1,2 +1,4 @@
-# Copiar a .dev.vars para desarrollo local. En producción: npx wrangler secret put ADMIN_PASSWORD
+# Copiar a .dev.vars. Solo lo usa el servidor local (npm run dev:remote) para crear su superadministrador.
+# En producción las cuentas se crean con: npm run user -- correo@ejemplo.com "Nombre Apellido"
+ADMIN_EMAIL=admin@ejemplo.com
 ADMIN_PASSWORD=cambiame-por-una-clave-larga
