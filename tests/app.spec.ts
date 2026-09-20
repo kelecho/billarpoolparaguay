@@ -283,7 +283,13 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
   }
   await dialog.getByLabel('Armado de cruces').selectOption('ranking');
   await dialog.getByRole('button', { name: 'Generar emparejamientos' }).click();
-  for (const name of ['Llave de ganadores', 'Llave de perdedores', 'Gran final']) await expect(dialog.getByRole('region', { name })).toBeVisible();
+  // Cada llave tiene su pestaña con el avance; se abre en la que tiene partidos por jugar.
+  await expect(dialog.getByRole('tab', { name: /ganadores/i })).toHaveAttribute('aria-selected', 'true');
+  await expect(dialog.getByRole('tab', { name: /ganadores/i })).toContainText('1 por jugar');
+  for (const name of [/perdedores/i, /Gran final/, /ganadores/i]) {
+    await dialog.getByRole('tab', { name }).click();
+    await expect(dialog.getByRole('tabpanel').getByRole('region')).toBeVisible();
+  }
   await expect(dialog).toContainText('0/4 partidos disputados');
 
   // Con el formato fijado por el fixture, el formulario ya no deja cambiarlo.
@@ -295,6 +301,7 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
 
   // Gana siempre quien figura primero: la cabeza de serie llega invicta a la gran final.
   for (const id of ['G1-2', 'G2-1', 'P2-1', 'F1-1']) {
+    await dialog.getByRole('tab', { name: { G: /ganadores/i, P: /perdedores/i, F: /Gran final/ }[id[0]]! }).click();
     const match = dialog.getByRole('article', { name: `Partido ${id}`, exact: true });
     await match.getByRole('button', { name: 'Cargar resultado', exact: true }).click();
     await match.getByRole('spinbutton').nth(0).fill('2');
@@ -306,6 +313,10 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
   const final = dialog.getByRole('article', { name: 'Partido F1-1', exact: true });
   await expect(final).toContainText('Alejandro Vera');
   await expect(final).toContainText('Santiago Rojas');
+  // El marcador muestra una bolita por partida y resalta al ganador.
+  await expect(final.locator('.match-winner .match-beads i.on')).toHaveCount(2);
+  await expect(final.locator('.match-loser .match-beads i.on')).toHaveCount(1);
+  await dialog.getByRole('tab', { name: /perdedores/i }).click();
   await expect(dialog.getByRole('article', { name: 'Partido P1-1', exact: true })).toContainText('Pase libre');
   await expect(dialog).toContainText('4/4 partidos disputados');
   await expect(dialog).toContainText('Ganador del torneo');

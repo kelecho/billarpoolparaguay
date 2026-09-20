@@ -136,6 +136,7 @@ export function fixtureSections(matches: ResolvedMatch[]) {
     const bracket = group[0].bracket;
     const rounds = group.at(-1)!.round + 1;
     return {
+      bracket,
       title: bracket && titles[bracket],
       rounds: Array.from({ length: rounds }, (_, round) => ({ label: bracket === 'G' || bracket === 'P' ? `Ronda ${round + 1}` : roundLabel(round, rounds), matches: group.filter(m => m.round === round) })),
     };

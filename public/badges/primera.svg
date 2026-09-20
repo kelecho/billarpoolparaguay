@@ -1,16 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" fill="none">
  <title>Insignia de Primera · Pool Paraguay</title>
- <defs><linearGradient id="metal" x1="15" y1="8" x2="80" y2="102" gradientUnits="userSpaceOnUse"><stop stop-color="#f6dd96"/><stop offset=".48" stop-color="#a67626"/><stop offset=".7" stop-color="#f6dd96"/><stop offset="1" stop-color="#a67626"/></linearGradient></defs>
- <path d="M48 3 88 15V56C88 81 69 99 48 109 27 99 8 81 8 56V15Z" fill="url(#metal)" stroke="#a67626" stroke-width="2"/>
- <path d="M48 9 82 19V56C82 76 68 93 48 103 28 93 14 76 14 56V19Z" fill="#163d67" stroke="#f6dd96"/>
- <path d="M48 9V103C68 93 82 76 82 56V19Z" fill="#102b4a"/>
- <path d="M29 16H67" stroke="#ce3543" stroke-width="3"/><path d="M29 19H67" stroke="#fffefa" stroke-width="3"/><path d="M29 22H67" stroke="#3f7db6" stroke-width="3"/>
- <g fill="#f6dd96"><path d="M0 -4 1.2 -1.2 4 -1.2 1.9 .7 2.6 3.6 0 1.9 -2.6 3.6 -1.9 .7 -4 -1.2 -1.2 -1.2Z" transform="translate(36.0 28)"/><path d="M0 -4 1.2 -1.2 4 -1.2 1.9 .7 2.6 3.6 0 1.9 -2.6 3.6 -1.9 .7 -4 -1.2 -1.2 -1.2Z" transform="translate(48.0 28)"/><path d="M0 -4 1.2 -1.2 4 -1.2 1.9 .7 2.6 3.6 0 1.9 -2.6 3.6 -1.9 .7 -4 -1.2 -1.2 -1.2Z" transform="translate(60.0 28)"/></g>
- <path d="M24 38 72 83M72 38 24 83" stroke="#f6dd96" stroke-width="2.5" stroke-linecap="round"/>
- <path d="M24 38 29 43M72 38 67 43" stroke="#fffefa" stroke-width="3" stroke-linecap="round"/>
- <circle cx="48" cy="54" r="20" fill="#102b4a" stroke="url(#metal)" stroke-width="2"/>
- <path d="M48 44V64M44 44H52M44 64H52" stroke="#f6dd96" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
- <g stroke="#f6dd96" stroke-width="1.5" stroke-linecap="round"><path d="M21 59Q20 82 39 90M75 59Q76 82 57 90"/>
- <path d="m22 69-5-4m7 10-6-2m10 9-6-1m11 6-5 1m46-19 5-4m-7 10 6-2m-10 9 6-1m-11 6 5 1"/></g>
- <path d="M42 91H54M45 95H51" stroke="#f6dd96" stroke-width="2" stroke-linecap="round"/>
+ <defs>
+  <linearGradient id="oro" x1="10" y1="6" x2="86" y2="106" gradientUnits="userSpaceOnUse"><stop stop-color="#fff4c2"/><stop offset=".22" stop-color="#f3c74d"/><stop offset=".47" stop-color="#a8720f"/><stop offset=".63" stop-color="#ffe694"/><stop offset=".82" stop-color="#d9a02a"/><stop offset="1" stop-color="#8a5a08"/></linearGradient>
+  <linearGradient id="oro2" x1="0" y1="40" x2="0" y2="70" gradientUnits="userSpaceOnUse"><stop stop-color="#fff6cf"/><stop offset=".5" stop-color="#f3c74d"/><stop offset="1" stop-color="#b47d14"/></linearGradient>
+  <linearGradient id="esmalte" x1="18" y1="14" x2="78" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="#e8404f"/><stop offset="1" stop-color="#8c1222"/></linearGradient>
+  <linearGradient id="brillo" x1="30" y1="12" x2="52" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <clipPath id="campo"><path d="M48 11.5 80.5 21V56C80.5 75 67 91.5 48 101 29 91.5 15.5 75 15.5 56V21Z"/></clipPath>
+ </defs>
+ <g transform="translate(4.8 11.2) scale(.9)">
+  <path d="M48 3 88 15V56C88 81 69 99 48 109 27 99 8 81 8 56V15Z" fill="url(#oro)" stroke="#6e4705" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M48 6.4 11.2 17.4V56C11.2 70 17.4 82 27 91" stroke="#fff8d8" stroke-width="1.1" stroke-opacity=".9" stroke-linecap="round"/>
+  <path d="M48 11.5 80.5 21V56C80.5 75 67 91.5 48 101 29 91.5 15.5 75 15.5 56V21Z" fill="url(#esmalte)" stroke="#5f3c04" stroke-width="1.3" stroke-linejoin="round"/>
+  <g clip-path="url(#campo)">
+   <path d="M48 8V104H90V8Z" fill="#000" fill-opacity=".2"/>
+   <path d="M22 35 74 84M74 35 22 84" stroke="#5f3c04" stroke-width="5.4" stroke-linecap="round" stroke-opacity=".55"/>
+   <path d="M22 35 74 84M74 35 22 84" stroke="url(#oro)" stroke-width="3.4" stroke-linecap="round"/>
+   <path d="M22 35 27 39.7M74 35 69 39.7" stroke="#fffefa" stroke-width="3.6" stroke-linecap="round"/>
+   <path d="M12 8H62L30 66H12Z" fill="url(#brillo)"/>
+  </g>
+  <path d="M30 17.2H66" stroke="#ce3543" stroke-width="2.6"/><path d="M30 19.8H66" stroke="#fffefa" stroke-width="2.6"/><path d="M30 22.4H66" stroke="#3f7db6" stroke-width="2.6"/>
+  <g fill="url(#oro2)" stroke="#5f3c04" stroke-width=".7" stroke-linejoin="round"><path d="M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z" transform="translate(35 31)"/><path d="M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z" transform="translate(48 31)"/><path d="M0-5 1.5-1.6 5.1-1.5 2.3.8 3.1 4.4 0 2.4-3.1 4.4-2.3.8-5.1-1.5-1.5-1.6Z" transform="translate(61 31)"/></g>
+  <g fill="url(#oro)" stroke="#5f3c04" stroke-width=".5"><path d="M48 85.5 Q30 82 22.5 62M48 85.5 Q66 82 73.5 62" fill="none" stroke="url(#oro)" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="42.1" cy="82.6" rx="2" ry="4.6" transform="rotate(-220 42.1 82.6)"/><ellipse cx="35.0" cy="80.0" rx="2" ry="4.6" transform="rotate(-204 35.0 80.0)"/><ellipse cx="28.8" cy="75.6" rx="2" ry="4.6" transform="rotate(-189 28.8 75.6)"/><ellipse cx="24.0" cy="69.7" rx="2" ry="4.6" transform="rotate(-174 24.0 69.7)"/><ellipse cx="20.9" cy="62.8" rx="2" ry="4.6" transform="rotate(-158 20.9 62.8)"/><ellipse cx="53.9" cy="82.6" rx="2" ry="4.6" transform="rotate(-320 53.9 82.6)"/><ellipse cx="61.0" cy="80.0" rx="2" ry="4.6" transform="rotate(-336 61.0 80.0)"/><ellipse cx="67.2" cy="75.6" rx="2" ry="4.6" transform="rotate(-351 67.2 75.6)"/><ellipse cx="72.0" cy="69.7" rx="2" ry="4.6" transform="rotate(-366 72.0 69.7)"/><ellipse cx="75.1" cy="62.8" rx="2" ry="4.6" transform="rotate(-382 75.1 62.8)"/></g>
+  <circle cx="48" cy="55" r="19.5" fill="#8c1222" stroke="#5f3c04" stroke-width="5.2"/>
+  <circle cx="48" cy="55" r="19.5" fill="none" stroke="url(#oro)" stroke-width="3.6"/>
+  <circle cx="48" cy="55" r="16.6" fill="none" stroke="#fff8d8" stroke-width=".7" stroke-opacity=".7"/>
+  <g fill="url(#oro2)" stroke="#5f3c04" stroke-width=".8" stroke-linejoin="round"><rect x="42.8" y="44.5" width="10.4" height="3.6" rx=".8"/><rect x="42.8" y="61.9" width="10.4" height="3.6" rx=".8"/><rect x="45.4" y="44.5" width="5.2" height="21"/></g>
+ </g>
+ <g stroke="#6e4705" stroke-width="1.2" stroke-linejoin="round"><path d="M31 15.4 28.6 3.6 38.4 9.2 48 1.2 57.6 9.2 67.4 3.6 65 15.4Z" fill="url(#oro)"/><path d="M30.6 15H65.4V19H30.6Z" fill="url(#oro2)"/></g>
+ <g fill="#ce3543" stroke="#6e4705" stroke-width=".6"><circle cx="48" cy="1.9" r="1.7"/><circle cx="28.8" cy="3.9" r="1.5"/><circle cx="67.2" cy="3.9" r="1.5"/></g>
+ <g fill="#fff"><path d="M0-4.2.9-.9 4.2 0 .9.9 0 4.2-.9.9-4.2 0-.9-.9Z" transform="translate(19 30)"/><path d="M0-2.6.6-.6 2.6 0 .6.6 0 2.6-.6.6-2.6 0-.6-.6Z" transform="translate(27.5 22.6)" fill-opacity=".85"/></g>
 </svg>
