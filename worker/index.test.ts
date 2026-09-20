@@ -331,6 +331,34 @@ describe('Fotos compartidas', () => {
     expect(await stored(again)).toBe(false);
   });
 
+  it('guarda el banner del torneo en R2, lo valida por su tipo y lo borra cuando se quita', async () => {
+    const { readFileSync } = await import('node:fs');
+    const banner = `data:image/jpeg;base64,${readFileSync(new URL('../tests/fixtures/banner.jpg', import.meta.url)).toString('base64')}`;
+    expect(banner.length).toBeGreaterThan(64 * 1024);
+    await login();
+    // Pesa más que una foto de ficha: solo entra declarado como banner.
+    expect((await call('POST', '/api/photos', { photo: banner })).status).toBe(422);
+    expect((await call('POST', '/api/photos', { photo: `${banner}${'A'.repeat(400 * 1024)}`, kind: 'banner' })).status).toBe(413);
+    const ref = (await call('POST', '/api/photos', { photo: banner, kind: 'banner' })).data.photo as string;
+    expect(ref).toMatch(/^\/api\/photos\/[0-9a-f]{64}\.jpg$/);
+
+    const tournament = { id: 'copa', name: 'Copa con banner', date: '2025-03-01', venue: 'Club', discipline: 'Bola 8', category: 'Tercera', results: [] };
+    expect((await call('POST', '/api/actions', { action: { type: 'tournament.save', tournament: { ...tournament, banner } }, version: 0 })).status).toBe(422);
+    expect((await call('POST', '/api/actions', { action: { type: 'tournament.save', tournament: { ...tournament, banner: `/api/photos/${'b'.repeat(64)}.jpg` } }, version: 0 })).status).toBe(422);
+    expect((await call('POST', '/api/actions', { action: { type: 'tournament.save', tournament: { ...tournament, banner: ref } }, version: 0 })).status).toBe(200);
+    cookie = '';
+    expect((await call('GET', '/api/state')).data.state.tournaments[0].banner).toBe(ref);
+    expect(await stored(ref)).toBe(true);
+
+    await login();
+    const removed = await call('POST', '/api/actions', { action: { type: 'tournament.banner', tournamentId: 'copa' }, version: 1 });
+    expect(removed.status).toBe(200);
+    expect(removed.data.state.tournaments[0].banner).toBeUndefined();
+    expect((await call('GET', '/api/state')).data.state.tournaments[0].banner).toBeUndefined();
+    expect(await stored(ref)).toBe(false);
+    expect((await call('GET', '/api/audit')).data.entries[0]).toMatchObject({ type: 'tournament.banner', summary: 'Quitó el banner de Copa con banner' });
+  });
+
   it('guarda los datos de un solo administrador ante escrituras simultáneas', async () => {
     await login();
     const photo = await upload(await photoFixture());

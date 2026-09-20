@@ -296,7 +296,7 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
   await dialog.getByRole('button', { name: 'Editar torneo' }).click();
   await expect(page.getByLabel('Formato')).toBeDisabled();
   await expect(page.getByLabel('Clasifican a la fase final')).toBeDisabled();
-  await page.getByRole('button', { name: 'Cerrar' }).click();
+  await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
   await page.getByRole('article').filter({ hasText: 'Copa doble' }).getByRole('link', { name: 'Administrar torneo' }).click();
 
   // Gana siempre quien figura primero: la cabeza de serie llega invicta a la gran final.
@@ -327,4 +327,46 @@ test('juega un torneo de doble eliminación: ganadores, perdedores y gran final 
   expect(places).toEqual(['1.º', '2.º', '3.º']);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('agrega el banner del evento sin recortarlo, lo muestra en la tarjeta y el torneo, y lo cambia con resultados publicados', async ({ page }) => {
+  await page.goto('/#/torneos');
+  await page.getByRole('button', { name: 'Crear torneo' }).click();
+  await page.getByLabel('Nombre del torneo').fill('Copa con afiche');
+  await page.getByLabel('Categoría del torneo').selectOption('Primera');
+  await page.getByLabel('Sede y ciudad').fill('Club del afiche');
+  await page.getByLabel('Banner del evento (opcional)').setInputFiles('public/icon.svg');
+  await expect(page.getByRole('alert')).toContainText('Elegí una imagen JPG, PNG o WebP');
+  await page.getByLabel('Banner del evento (opcional)').setInputFiles('tests/fixtures/banner.jpg');
+  const preview = page.getByRole('img', { name: 'Vista previa del banner' });
+  await expect(preview).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  // El afiche es vertical (1080 × 1350) y conserva esa proporción.
+  const ratio = await preview.evaluate((img: HTMLImageElement) => img.naturalWidth / img.naturalHeight);
+  expect(ratio).toBeCloseTo(1080 / 1350, 2);
+  await page.getByRole('button', { name: 'Guardar torneo' }).click();
+
+  const card = page.getByRole('article').filter({ hasText: 'Copa con afiche' });
+  await expect(card.locator('.card-banner')).toBeVisible();
+  await card.getByRole('link', { name: 'Administrar torneo' }).click();
+  await expect(page.getByRole('dialog').getByRole('img', { name: 'Banner de Copa con afiche' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('dialog').getByRole('img', { name: 'Banner de Copa con afiche' })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  // Un torneo con resultados publicados ya no se edita, pero su banner sí.
+  await page.goto('/#/torneos');
+  await page.getByRole('article').filter({ hasText: 'Encuentro del Sur' }).getByRole('link', { name: 'Ver resultados' }).click();
+  const finished = page.getByRole('dialog');
+  await expect(finished.getByRole('button', { name: 'Editar torneo' })).toHaveCount(0);
+  await finished.getByRole('button', { name: 'Agregar banner' }).click();
+  await finished.getByLabel('Banner del evento (opcional)').setInputFiles('tests/fixtures/banner.jpg');
+  await finished.getByRole('button', { name: 'Guardar banner' }).click();
+  await expect(finished.getByRole('img', { name: 'Banner de Encuentro del Sur' })).toBeVisible();
+  await expect(finished.getByRole('heading', { name: 'Clasificación final' })).toBeVisible();
+  await finished.getByRole('button', { name: 'Cambiar banner' }).click();
+  await finished.getByRole('button', { name: 'Quitar banner' }).click();
+  await finished.getByRole('button', { name: 'Guardar banner' }).click();
+  await expect(finished.getByRole('img', { name: 'Banner de Encuentro del Sur' })).toHaveCount(0);
 });

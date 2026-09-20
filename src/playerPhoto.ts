@@ -1,9 +1,14 @@
 /** Las fotos se guardan como JPEG pequeños, también dentro de los respaldos. */
 export const MAX_PHOTO_LENGTH = 64 * 1024;
+/** El banner del evento conserva su proporción y más detalle que una foto de ficha. */
+export const MAX_BANNER_LENGTH = 400 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-export function validPlayerPhoto(photo: unknown): photo is string {
-  if (typeof photo !== 'string' || photo.length > MAX_PHOTO_LENGTH) return false;
+export const validPlayerPhoto = (photo: unknown): photo is string => validJpeg(photo, MAX_PHOTO_LENGTH);
+export const validBanner = (banner: unknown): banner is string => validJpeg(banner, MAX_BANNER_LENGTH);
+
+function validJpeg(photo: unknown, maxLength: number): photo is string {
+  if (typeof photo !== 'string' || photo.length > maxLength) return false;
   const prefix = 'data:image/jpeg;base64,';
   if (!photo.startsWith(prefix)) return false;
   const encoded = photo.slice(prefix.length);

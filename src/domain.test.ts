@@ -155,3 +155,30 @@ describe('torneos en juego', () => {
     expect(live({ ...base, results: [{ playerId: 'a', place: 1, points: 300 }] })).toBe(false);
   });
 });
+
+describe('banner del torneo', () => {
+  const banner = 'data:image/jpeg;base64,/9j/2wBDAAEBAf/Z';
+  const ref = `/api/photos/${'c'.repeat(64)}.jpg`;
+
+  it('se carga al crear o editar el torneo y se conserva al editar otros datos', () => {
+    let state = createState();
+    const upcoming = state.tournaments.find(t => !t.results.length)!;
+    state = applyAction(state, { type: 'tournament.save', tournament: { ...upcoming, category: 'Primera', banner } });
+    expect(state.tournaments.find(t => t.id === upcoming.id)!.banner).toBe(banner);
+    state = applyAction(state, { type: 'tournament.save', tournament: { ...state.tournaments.find(t => t.id === upcoming.id)!, name: 'Otro nombre' } });
+    expect(state.tournaments.find(t => t.id === upcoming.id)).toMatchObject({ name: 'Otro nombre', banner });
+  });
+
+  it('se cambia o se quita también con los resultados publicados, y solo admite JPEG o una referencia', () => {
+    let state = createState();
+    const finished = state.tournaments.find(t => t.results.length)!;
+    expect(() => applyAction(state, { type: 'tournament.save', tournament: { ...finished, banner } })).toThrow(/Reabrí/);
+    state = applyAction(state, { type: 'tournament.banner', tournamentId: finished.id, banner: ref });
+    expect(state.tournaments.find(t => t.id === finished.id)).toMatchObject({ banner: ref, results: finished.results });
+    state = applyAction(state, { type: 'tournament.banner', tournamentId: finished.id });
+    expect('banner' in state.tournaments.find(t => t.id === finished.id)!).toBe(false);
+    expect(() => applyAction(state, { type: 'tournament.banner', tournamentId: finished.id, banner: 'https://otro.example/afiche.jpg' })).toThrow(/banner/);
+    expect(() => applyAction(state, { type: 'tournament.banner', tournamentId: finished.id, banner: 'data:image/svg+xml;base64,PHN2Zy8+' })).toThrow(/banner/);
+    expect(() => applyAction(state, { type: 'tournament.banner', tournamentId: 'no-existe', banner: ref })).toThrow(/no existe/);
+  });
+});

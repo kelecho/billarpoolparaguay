@@ -91,6 +91,8 @@ test('el administrador sortea y publica un torneo y el visitante consulta el fix
   await page.getByLabel('Categoría del torneo').selectOption('Principiante');
   await page.getByLabel('Partidas para ganar').fill('2');
   await page.getByLabel('Sede y ciudad').fill('Club remoto');
+  await page.getByLabel('Banner del evento (opcional)').setInputFiles('tests/fixtures/banner.jpg');
+  await expect(page.getByRole('img', { name: 'Vista previa del banner' })).toBeVisible();
   await page.getByRole('button', { name: 'Guardar torneo' }).click();
   await page.getByRole('article').filter({ hasText: 'Copa remota' }).getByRole('link', { name: 'Administrar torneo' }).click();
   const dialog = page.getByRole('dialog');
@@ -109,6 +111,10 @@ test('el administrador sortea y publica un torneo y el visitante consulta el fix
   const visitor = await context.newPage();
   await visitor.goto(page.url());
   await expect(visitor.getByRole('dialog').getByRole('article', { name: 'Partido 1-1', exact: true })).toBeVisible();
+  // El banner se sube a R2 antes de guardar el torneo; el visitante recibe solo la dirección del archivo.
+  const banner = visitor.getByRole('dialog').getByRole('img', { name: 'Banner de Copa remota' });
+  await expect(banner).toHaveAttribute('src', /^\/api\/photos\/[0-9a-f]{64}\.jpg$/);
+  await expect.poll(() => banner.evaluate((img: HTMLImageElement) => img.naturalHeight / img.naturalWidth)).toBeCloseTo(1350 / 1080, 2);
   await expect(visitor.getByRole('button', { name: 'Cargar resultado', exact: true })).toHaveCount(0);
   await expect(visitor.getByRole('button', { name: 'Volver a sortear' })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Cargar resultado', exact: true }).click();

@@ -9,7 +9,8 @@ import type { Store } from '../useStore';
 
 type Props = { store: Store; onSaveRules: (rules: Rules) => void; onExport: () => void; onReplace: (state: State) => void; onError: (e: unknown) => void; onLogout: (all: boolean) => void };
 
-const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+/** Los respaldos llevan fotos y banners adentro; al servidor viaja solo el registro con las referencias. */
+const MAX_BACKUP_BYTES = 40 * 1024 * 1024;
 const auditDate = (at: string) => new Intl.DateTimeFormat('es-PY', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(at));
 
 /** Se vuelve a pedir cuando cambia el ranking o alguna cuenta. */
@@ -36,7 +37,7 @@ export default function SettingsPage({ store, onSaveRules, onExport, onReplace, 
   async function importBackup(file?: File) {
     if (!file) return;
     try {
-      if (file.size > MAX_BACKUP_BYTES) throw new Error('El respaldo supera el límite de 10 MB.');
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('El respaldo supera el límite de 40 MB.');
       onReplace(validateState(JSON.parse(await file.text())));
     } catch (e) {
       onError(e);

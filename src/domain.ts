@@ -1,6 +1,6 @@
 import { MAX_ENTRANTS, QUALIFIER_OPTIONS, validateFixture, type Fixture, type Format } from './fixture.ts';
 import { applyTournamentAction, type TournamentAction } from './tournamentActions.ts';
-import { isPhotoRef, validPlayerPhoto } from './playerPhoto.ts';
+import { isPhotoRef, validBanner, validPlayerPhoto } from './playerPhoto.ts';
 
 export const DISCIPLINES = ['Bola 8', 'Bola 9', 'Bola 10'] as const;
 export type Discipline = (typeof DISCIPLINES)[number];
@@ -9,7 +9,9 @@ export type Player = { id: string; name: string; city: string; club: string; ini
 export type Result = { playerId: string; place: number; points: number };
 export type Tournament = { id: string; name: string; date: string; venue: string; discipline: Discipline; results: Result[]; category?: string; registered?: string[]; raceTo?: number; fixture?: Fixture;
   /** Sin valor es eliminación directa. En doble eliminación, `qualifiers` jugadores pasan a la fase final de eliminación directa. */
-  format?: Format; qualifiers?: number };
+  format?: Format; qualifiers?: number;
+  /** Banner del evento: JPEG incrustado en modo local y en respaldos, referencia al archivo en modo compartido. */
+  banner?: string };
 export type Rules = { categories: { name: string; min: number }[]; points: number[]; participation: number };
 export type State = { version: 1; demo: boolean; players: Player[]; tournaments: Tournament[]; rules: Rules };
 export type Entry = Result & { tournament: Tournament };
@@ -31,6 +33,7 @@ export type Action =
   | { type: 'player.remove'; playerId: string }
   | { type: 'tournament.save'; tournament: Tournament }
   | { type: 'tournament.remove'; tournamentId: string }
+  | { type: 'tournament.banner'; tournamentId: string; banner?: string }
   | { type: 'results.publish'; tournamentId: string; placements: Pick<Result, 'playerId' | 'place'>[] }
   | { type: 'results.reopen'; tournamentId: string; reason: string }
   | { type: 'rules.save'; rules: Rules };
@@ -137,6 +140,7 @@ export function validateState(input: unknown): State {
     if (new Set(t.results.map(r => r.playerId)).size !== t.results.length || (!t.fixture && new Set(t.results.map(r => r.place)).size !== t.results.length)) return fail();
     if (t.category !== undefined && !rules.categories.some(c => c.name === t.category)) return fail();
     if (t.raceTo !== undefined && (!Number.isInteger(t.raceTo) || t.raceTo < 1 || t.raceTo > 30)) return fail();
+    if (t.banner !== undefined && !validBanner(t.banner) && !isPhotoRef(t.banner)) throw new Error('El banner del torneo no es válido. Volvé a cargarlo.');
     if (t.format !== undefined && t.format !== 'single' && t.format !== 'double') return fail();
     if (t.qualifiers !== undefined && (t.format !== 'double' || !QUALIFIER_OPTIONS.includes(t.qualifiers))) return fail();
     if (t.registered !== undefined && (!Array.isArray(t.registered) || t.registered.length > MAX_ENTRANTS || new Set(t.registered).size !== t.registered.length || t.registered.some(id => !ids.has(id)))) return fail();
@@ -181,6 +185,12 @@ export function applyAction(state: State, action: Action, today = localDate()): 
       if (current?.fixture && ((action.tournament.raceTo ?? 5) !== (current.raceTo ?? 5) || action.tournament.discipline !== current.discipline || action.tournament.date !== current.date || shape.format !== current.format || shape.qualifiers !== current.qualifiers)) throw new Error('No se puede cambiar la fecha, disciplina, formato o partidas para ganar con el fixture armado.');
       const tournament = { ...action.tournament, ...shape, registered: current?.registered ?? [], fixture: current?.fixture, results: current?.results || [] };
       next = { ...state, tournaments: current ? state.tournaments.map(t => t.id === tournament.id ? tournament : t) : [...state.tournaments, tournament] };
+      break;
+    }
+    case 'tournament.banner': {
+      // No cambia nada deportivo: se permite también con los resultados publicados.
+      if (!state.tournaments.some(t => t.id === action.tournamentId)) throw new Error('El torneo no existe.');
+      next = { ...state, tournaments: state.tournaments.map(t => { if (t.id !== action.tournamentId) return t; const { banner: _banner, ...rest } = t; return action.banner ? { ...rest, banner: action.banner } : rest; }) };
       break;
     }
     case 'tournament.remove': {
@@ -232,6 +242,7 @@ export function describeAction(state: State, action: Action): string {
     case 'player.remove': return `Eliminó al jugador ${state.players.find(p => p.id === action.playerId)?.name ?? action.playerId}`;
     case 'tournament.save': return `${state.tournaments.some(t => t.id === action.tournament.id) ? 'Editó' : 'Creó'} el torneo ${action.tournament.name}`;
     case 'tournament.remove': return `Eliminó el torneo ${tournament(action.tournamentId)}`;
+    case 'tournament.banner': return `${action.banner ? 'Cambió' : 'Quitó'} el banner de ${tournament(action.tournamentId)}`;
     case 'results.publish': return `Publicó ${action.placements?.length ?? 0} resultados de ${tournament(action.tournamentId)}`;
     case 'results.reopen': return `Reabrió ${tournament(action.tournamentId)}`;
     case 'rules.save': return 'Cambió las reglas de categorías y puntuación';

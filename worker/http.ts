@@ -1,6 +1,6 @@
 export const MAX_STATE_BYTES = 10 * 1024 * 1024;
 export const MAX_ACTION_BYTES = 256 * 1024;
-export const MAX_PHOTO_BYTES = 100 * 1024;
+export const MAX_BANNER_BYTES = 450 * 1024;
 export const MAX_ACCOUNT_BYTES = 4 * 1024;
 export const API_HEADERS = {
   'cache-control': 'no-store',

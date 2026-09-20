@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Pencil, Share2, Shuffle } from 'lucide-react';
+import { ImagePlus, Pencil, Share2, Shuffle } from 'lucide-react';
 import { dateLabel, localDate, standings, type Action, type State, type Tournament } from '../domain';
 import { drawPlayers, resolveFixture } from '../fixture';
+import BannerField from './BannerField';
 import CategoryBadge from './CategoryBadge';
 import ConfirmButton from './ConfirmButton';
 import FixtureBoard from './FixtureBoard';
@@ -14,6 +15,8 @@ type Props = { tournament: Tournament; state: State; canEdit: boolean; /** Se es
 export default function TournamentManager({ tournament: t, state, canEdit, live = false, submit, onLegacyResults, onCreatePlayer, onEdit, onReopen, onShare }: Props) {
   const [busy, setBusy] = useState(false);
   const [method, setMethod] = useState<'random' | 'ranking' | 'manual'>('random');
+  // Con los resultados publicados el torneo ya no se edita, pero el banner no cambia nada deportivo.
+  const [banner, setBanner] = useState<{ value?: string } | null>(null);
   const registered = t.registered ?? [];
   const matches = resolveFixture(t);
   const finished = t.results.length > 0;
@@ -29,6 +32,15 @@ export default function TournamentManager({ tournament: t, state, canEdit, live 
     void save({ type: 'fixture.generate', tournamentId: t.id, playerIds, draw });
   };
   return <div className="tournament-manager form-stack" aria-busy={busy}>
+    {/* El mismo afiche, desenfocado, rellena los costados cuando es vertical. */}
+    {t.banner && !banner && <div className="tournament-banner" style={{ backgroundImage: `url("${t.banner}")` }}><img src={t.banner} alt={`Banner de ${t.name}`} /></div>}
+    {banner && <div className="form-stack">
+      <BannerField banner={banner.value} onChange={value => setBanner({ value })} />
+      <div className="modal-actions">
+        <button className="button primary" disabled={busy} onClick={() => void save({ type: 'tournament.banner', tournamentId: t.id, banner: banner.value }).then(ok => { if (ok) setBanner(null); })}>Guardar banner</button>
+        <button className="button" disabled={busy} onClick={() => setBanner(null)}>Cancelar</button>
+      </div>
+    </div>}
     <div className="tournament-summary">
       {t.category && <CategoryBadge category={t.category} rules={state.rules} large />}
       <div><p>{dateLabel(t.date)} · {t.discipline}</p><p className="muted">{t.venue}</p>{t.category && <p className="muted small">{t.format === 'double' ? `Doble eliminación · ${t.qualifiers === 2 ? 'gran final a partido único' : `${t.qualifiers} clasifican a la fase final`}` : 'Eliminación directa'} · Primero en llegar a {t.raceTo ?? 5} partidas · {registered.length} inscriptos</p>}</div>
@@ -36,6 +48,7 @@ export default function TournamentManager({ tournament: t, state, canEdit, live 
     <div className="modal-actions">
       {canEdit && !finished && <button className="button" disabled={busy} onClick={onEdit}><Pencil size={15} />Editar torneo</button>}
       {canEdit && !finished && !t.category && <button className="button" disabled={t.date > localDate()} onClick={onLegacyResults}>Cargar resultados</button>}
+      {canEdit && finished && !banner && <button className="button" disabled={busy} onClick={() => setBanner({ value: t.banner })}><ImagePlus size={15} />{t.banner ? 'Cambiar banner' : 'Agregar banner'}</button>}
       <button className="button" onClick={onShare}><Share2 size={15} />Compartir torneo</button>
     </div>
     {!t.category && !finished && <p className="muted">Asigná una categoría desde «Editar torneo» para abrir las inscripciones y realizar el sorteo.</p>}

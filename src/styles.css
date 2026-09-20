@@ -548,6 +548,8 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
   .ranking-section { margin-bottom: 34px; }
   .tournament-grid { grid-template-columns: 1fr; gap: 16px; }
   .tournament-card { padding: 19px 21px; }
+  .tournament-card-banner { padding-top: 0; }
+  .card-banner { width: calc(100% + 42px); margin: 0 -21px 16px; }
   .tournament-card h3 { font-size: 25px; }
   .tournament-title { gap: 16px; }
   .tournament-card p { font-size: 11px; }
@@ -640,6 +642,17 @@ dialog::backdrop { background: #102e5070; backdrop-filter: blur(5px); }
 .photo-editor input::file-selector-button { border: 1px solid var(--line); border-radius: 4px; padding: 7px; margin-right: 8px; background: var(--paper); color: var(--ink); cursor: pointer; }
 .photo-editor .text-button { justify-self: start; font-size: 12px; }
 .photo-error { color: var(--red-ink); font-size: 13px; }
+/* Banner del evento: completo en el torneo y en el editor; recortado a lo ancho solo en la tarjeta. */
+.banner-editor { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--hover); }
+.banner-editor input[type='file'] { width: 100%; min-width: 0; font-size: 12px; padding: 6px; }
+.banner-editor input::file-selector-button { border: 1px solid var(--line); border-radius: 4px; padding: 7px; margin-right: 8px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.banner-editor .text-button { justify-self: start; font-size: 12px; }
+.banner-preview { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 5px; background: var(--paper); }
+.tournament-banner { position: relative; overflow: hidden; border-radius: 7px; background-color: var(--blue-deep); background-size: 0 0; background-repeat: no-repeat; }
+.tournament-banner::before { content: ''; position: absolute; inset: -30px; background-image: inherit; background-size: cover; background-position: center; filter: blur(26px) brightness(.72) saturate(1.1); }
+.tournament-banner > img { position: relative; display: block; width: 100%; max-height: min(460px, 60vh); object-fit: contain; }
+.tournament-card-banner { padding-top: 0; overflow: hidden; }
+.card-banner { display: block; width: calc(100% + 50px); max-width: none; margin: 0 -25px 18px; aspect-ratio: 16 / 9; object-fit: cover; object-position: center 20%; background: var(--hover); }
 @media (max-width: 760px) {
   .category-badge { gap: 4px; font-size: 10px; }
   .category-badge .category-icon { width: 23px; height: 28px; }

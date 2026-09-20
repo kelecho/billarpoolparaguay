@@ -2,14 +2,18 @@ import { useState, type FormEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DISCIPLINES, localDate, type Action, type Discipline, type Tournament, type State } from '../domain';
 import { QUALIFIER_OPTIONS, type Format } from '../fixture';
+import BannerField from './BannerField';
 import ConfirmButton from './ConfirmButton';
 import Field from './Field';
 
 export default function TournamentForm({ tournament, state, submit }: { tournament?: Tournament; state: State; submit: (action: Action) => void }) {
   const [format, setFormat] = useState<Format>(tournament?.format ?? 'single');
   const locked = Boolean(tournament?.fixture);
+  const [banner, setBanner] = useState(tournament?.banner);
+  const [processing, setProcessing] = useState(false);
   function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (processing) return;
     const data = new FormData(e.currentTarget);
     submit({
       type: 'tournament.save',
@@ -21,6 +25,7 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         discipline: (data.get('discipline') ?? tournament?.discipline) as Discipline,
         category: String(data.get('category') ?? tournament?.category ?? '') || undefined,
         raceTo: Number(data.get('raceTo') ?? tournament?.raceTo ?? 5),
+        ...(banner ? { banner } : {}),
         ...(format === 'double' ? { format, qualifiers: Number(data.get('qualifiers') ?? tournament?.qualifiers ?? 2) } : {}),
         results: [],
       },
@@ -47,6 +52,7 @@ export default function TournamentForm({ tournament, state, submit }: { tourname
         ? 'Quien pierde en la llave de ganadores sigue en la de perdedores; la segunda derrota elimina. La mitad de los clasificados llega invicta y la otra mitad con una derrota, y la fase final se juega por eliminación directa a partido único.'
         : 'Eliminación directa, con sorteo inicial, pases libres y fixture hasta la final.'}</p>
       <Field label="Sede y ciudad"><input name="venue" defaultValue={tournament?.venue} required maxLength={150} /></Field>
+      <BannerField banner={banner} onChange={setBanner} onBusy={setProcessing} />
       <button className="button primary" type="submit">Guardar torneo</button>
       {tournament && <ConfirmButton confirmLabel="Confirmar: eliminar torneo" onConfirm={() => submit({ type: 'tournament.remove', tournamentId: tournament.id })}><Trash2 size={15} />Eliminar torneo</ConfirmButton>}
     </form>

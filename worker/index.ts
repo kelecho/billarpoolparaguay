@@ -1,8 +1,8 @@
 import { applyAction, dateIn, describeAction, validateState, type Action, type State } from '../src/domain.ts';
-import { isPhotoRef, PHOTO_PATH, validPlayerPhoto } from '../src/playerPhoto.ts';
+import { isPhotoRef, PHOTO_PATH, validBanner, validPlayerPhoto } from '../src/playerPhoto.ts';
 import { canApply } from '../src/roles.ts';
 import { changeOwnPassword, createUser, currentUser, deleteUser, listUsers, login, logout, requireUser, updateUser } from './auth.ts';
-import { API_HEADERS, body, hex, HttpError, json, MAX_ACTION_BYTES, MAX_PHOTO_BYTES, MAX_STATE_BYTES, raw } from './http.ts';
+import { API_HEADERS, body, hex, HttpError, json, MAX_ACTION_BYTES, MAX_BANNER_BYTES, MAX_STATE_BYTES, raw } from './http.ts';
 import { head, load, save } from './store.ts';
 
 export interface Env {
@@ -34,28 +34,33 @@ async function publicState(request: Request, env: Env) {
   return raw(`${snapshot.text.slice(0, -1)},"user":${JSON.stringify(user)}}`);
 }
 
-/** Las fichas del servidor solo llevan referencias; una foto nueva tiene que estar subida antes de guardarse. */
+/** Imágenes que usa el registro: fotos de jugadores y banners de torneos. */
+const images = (state: State) => [...state.players.map(p => p.photo), ...state.tournaments.map(t => t.banner)].filter((image): image is string => Boolean(image));
+
+/** El servidor solo guarda referencias; una imagen nueva tiene que estar subida antes de guardarse. */
 async function checkPhotos(env: Env, next: State, previous?: State) {
-  if (next.players.some(p => p.photo && !isPhotoRef(p.photo))) throw new HttpError(422, 'Subí la foto con /api/photos y guardá la referencia que devuelve.');
+  if (images(next).some(image => !isPhotoRef(image))) throw new HttpError(422, 'Subí la imagen con /api/photos y guardá la referencia que devuelve.');
   if (!previous) return;
-  const known = new Set(previous.players.map(p => p.photo));
-  for (const player of next.players) {
-    if (player.photo && !known.has(player.photo) && !(await env.PHOTOS.head(photoKey(player.photo)))) throw new HttpError(422, 'La foto del jugador no está subida. Volvé a cargarla desde su ficha.');
+  const known = new Set(images(previous));
+  for (const image of images(next)) {
+    if (!known.has(image) && !(await env.PHOTOS.head(photoKey(image)))) throw new HttpError(422, 'La imagen no está subida. Volvé a cargarla.');
   }
 }
 
-/** Borra de R2 las fotos que ninguna ficha usa ya. Si falla, solo queda un archivo huérfano. */
+/** Borra de R2 las imágenes que ya nadie usa. Si falla, solo queda un archivo huérfano. */
 async function dropUnusedPhotos(env: Env, next: State, previous: State) {
-  const used = new Set(next.players.map(p => p.photo));
-  const unused = [...new Set(previous.players.flatMap(p => p.photo && !used.has(p.photo) ? [photoKey(p.photo)] : []))];
+  const used = new Set(images(next));
+  const unused = [...new Set(images(previous).filter(image => !used.has(image)).map(photoKey))];
   try {
     for (let i = 0; i < unused.length; i += 1000) await env.PHOTOS.delete(unused.slice(i, i + 1000));
   } catch (e) { console.error(e); }
 }
 
 async function uploadPhoto(request: Request, env: Env) {
-  const { photo } = await body(request, MAX_PHOTO_BYTES);
-  if (!validPlayerPhoto(photo)) throw new HttpError(422, 'La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
+  // El cuerpo admite el tamaño de un banner; cada tipo de imagen tiene después su propio tope.
+  const { photo, kind } = await body(request, MAX_BANNER_BYTES);
+  const valid = kind === 'banner' ? validBanner : validPlayerPhoto;
+  if (!valid(photo)) throw new HttpError(422, kind === 'banner' ? 'El banner no es válido. Volvé a cargarlo.' : 'La foto del jugador no es válida. Volvé a cargarla desde su ficha.');
   const bytes = Uint8Array.from(atob(photo.slice(photo.indexOf(',') + 1)), c => c.charCodeAt(0));
   const key = `${hex(await crypto.subtle.digest('SHA-256', bytes))}.jpg`;
   await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });

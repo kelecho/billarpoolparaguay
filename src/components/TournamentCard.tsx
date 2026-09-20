@@ -10,7 +10,8 @@ export default function TournamentCard({ tournament: t, state, page, canEdit, on
   const finished = t.results.length > 0;
   const winner = state.players.find(p => p.id === t.results.find(r => r.place === 1)?.playerId)?.name;
   return (
-    <article className="tournament-card">
+    <article className={`tournament-card${t.banner ? ' tournament-card-banner' : ''}`}>
+      {t.banner && <img className="card-banner" src={t.banner} alt="" loading="lazy" />}
       <div className="tournament-top">
         <span className="tag">{t.discipline}{t.category && ` · ${t.category}`}</span>
         <span className={`status ${finished ? 'finished' : ''}`}>{finished ? 'Finalizado' : isLive(t) ? 'En juego' : t.fixture ? 'Fixture armado' : t.category ? 'Inscripciones' : t.date < localDate() ? 'Sin resultados' : 'Próximo'}</span>
