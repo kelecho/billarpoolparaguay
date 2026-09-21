@@ -4,11 +4,10 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
-  // Dominio oficial: billarpoolguarani.com.py.
-  // Descomentar cuando la zona esté activa en esta cuenta de Cloudflare.
-  // "routes": [
-  //   { "pattern": "billarpoolguarani.com.py", "custom_domain": true }
-  // ],
+  // Dominio oficial: billarpoolguarani.com.py. El despliegue crea y mantiene su registro DNS.
+  "routes": [
+    { "pattern": "billarpoolguarani.com.py", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./dist-remote",
     "binding": "ASSETS",

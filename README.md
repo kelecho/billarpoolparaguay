@@ -1,6 +1,6 @@
 # BillarPool Guaraní
 
-Dominio oficial previsto: **billarpoolguarani.com.py**. Su activación está pendiente de agregar el dominio a Cloudflare y delegar sus DNS. Mientras tanto, el sitio sigue disponible en https://pool-paraguay.pool-paraguay.workers.dev.
+Dominio oficial: **https://billarpoolguarani.com.py**. La dirección anterior, https://pool-paraguay.pool-paraguay.workers.dev, sigue respondiendo durante la transición.
 
 Aplicación local para administrar jugadores, torneos y un ranking de pool. React, TypeScript y Vite, con interfaz adaptable a celulares y soporte PWA.
 
@@ -124,13 +124,16 @@ npm run user -- correo@ejemplo.com "Nombre Apellido"   # primer superadministrad
 
 Para pasar datos del modo local al compartido: exportar el respaldo en el navegador, iniciar sesión en el sitio publicado y restaurarlo desde Configuración.
 
-### Activar el dominio oficial
+### El dominio oficial
 
-1. Agregar `billarpoolguarani.com.py` a la misma cuenta de Cloudflare que aloja el Worker y configurar en el registrador los servidores de nombres asignados por Cloudflare.
-2. Cuando Cloudflare muestre la zona como **activa**, descomentar el bloque `routes` preparado en `wrangler.jsonc` y ejecutar `npm run deploy`. El dominio personalizado apunta al Worker existente; Cloudflare gestiona sus registros DNS y el certificado HTTPS.
-3. Verificar `https://billarpoolguarani.com.py/` y `/api/state` antes de anunciar la dirección como disponible. La API y las fotos usan rutas relativas y conservarán las mismas bases D1 y R2. La sesión del navegador es propia de cada dominio: hay que volver a iniciar sesión en la nueva dirección.
+La zona `billarpoolguarani.com.py` está activa en la cuenta de Cloudflare que aloja el Worker, con sus servidores de nombres delegados. El bloque `routes` de `wrangler.jsonc` declara el dominio personalizado, así que cada `npm run deploy` crea y mantiene su registro DNS; Cloudflare emite y renueva el certificado HTTPS.
 
-`workers_dev: true` conserva el acceso anterior durante la transición. No configurar una redirección hacia el dominio nuevo hasta verificar que responde por HTTPS. Referencia: [dominios personalizados de Cloudflare Workers](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
+- La API y las fotos usan rutas relativas, y conservan las mismas bases D1 y R2 en ambas direcciones.
+- La sesión del navegador es propia de cada dominio: hay que iniciar sesión de nuevo en la dirección nueva.
+- `workers_dev: true` conserva el acceso anterior. Al quitarlo, `pool-paraguay.pool-paraguay.workers.dev` deja de responder y queda solo el dominio oficial.
+- `www.billarpoolguarani.com.py` todavía no responde: agregarlo es sumar una segunda ruta con `custom_domain`.
+
+Referencia: [dominios personalizados de Cloudflare Workers](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
 
 ## Administrar un torneo
 
